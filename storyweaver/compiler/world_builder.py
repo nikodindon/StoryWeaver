@@ -82,13 +82,13 @@ class WorldBuilder:
             gravity_map=gravity_map,
         )
 
-        # 8. Build agents (stored separately in bundle output, not in bundle itself)
+        # 8. Build agents (returned for use by the simulation engine)
         logger.info("  Building character agents...")
         agent_builder = AgentBuilder(self.llm)
-        agent_builder.build_all(characters, psychology, bundle)
+        agents = agent_builder.build_all(characters, psychology, bundle)
 
-        logger.info(f"World compiled: {len(locations)} locations, {len(characters)} characters")
-        return bundle
+        logger.info(f"World compiled: {len(locations)} locations, {len(characters)} characters, {len(agents)} agents")
+        return bundle, agents
 
     def _build_characters(self, raw_chars: List[Dict], social_graph: List[Dict]) -> Dict[str, Character]:
         characters = {}

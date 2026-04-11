@@ -50,8 +50,35 @@ class WorldBundle:
         return cls.from_dict(data)
 
     def to_dict(self) -> dict:
-        raise NotImplementedError("Implement serialization")
+        return {
+            "source_title": self.source_title,
+            "source_author": self.source_author,
+            "compiled_at": self.compiled_at,
+            "current_tick": self.current_tick,
+            "divergence_score": self.divergence_score,
+            "locations": {k: v.to_dict() for k, v in self.locations.items()},
+            "characters": {k: v.to_dict() for k, v in self.characters.items()},
+            "objects": {k: v.to_dict() for k, v in self.objects.items()},
+            "canon_events": [e.to_dict() for e in self.canon_events],
+            "gravity_map": self.gravity_map,
+            "rules": self.rules.to_dict() if self.rules else None,
+        }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "WorldBundle":
-        raise NotImplementedError("Implement deserialization")
+    def from_dict(cls, data: dict) -> WorldBundle:
+        rules_data = data.get("rules")
+        rules = WorldRules.from_dict(rules_data) if rules_data else None
+
+        return cls(
+            source_title=data["source_title"],
+            source_author=data.get("source_author", "Unknown"),
+            compiled_at=data["compiled_at"],
+            current_tick=data.get("current_tick", 0),
+            divergence_score=data.get("divergence_score", 0.0),
+            locations={k: Location.from_dict(v) for k, v in data.get("locations", {}).items()},
+            characters={k: Character.from_dict(v) for k, v in data.get("characters", {}).items()},
+            objects={k: WorldObject.from_dict(v) for k, v in data.get("objects", {}).items()},
+            canon_events=[Event.from_dict(e) for e in data.get("canon_events", [])],
+            gravity_map=data.get("gravity_map", {}),
+            rules=rules,
+        )
