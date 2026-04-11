@@ -50,8 +50,12 @@ class LlamaCppClient(LLMClient):
         }
 
         logger.debug(f"LLM call: {len(user)} chars input")
+        url = self.base_url.rstrip("/")
+        # Handle both "http://host:port" and "http://host:port/v1" base URLs
+        if not url.endswith("/v1"):
+            url = url.rstrip("/") + "/v1"
         response = requests.post(
-            f"{self.base_url}/v1/chat/completions",
+            f"{url}/chat/completions",
             json=payload,
             timeout=120,
         )
@@ -61,8 +65,11 @@ class LlamaCppClient(LLMClient):
         return content
 
     def embed(self, text: str) -> List[float]:
+        url = self.base_url.rstrip("/")
+        if not url.endswith("/v1"):
+            url = url.rstrip("/") + "/v1"
         response = requests.post(
-            f"{self.base_url}/v1/embeddings",
+            f"{url}/embeddings",
             json={"input": text, "model": self.model},
             timeout=30,
         )
