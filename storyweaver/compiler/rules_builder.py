@@ -15,19 +15,21 @@ class RulesBuilder:
 
         # Fold in conflict/relationship data as custom rules
         if relations:
-            conflicts = relations.get("conflicts", [])
-            if conflicts:
-                custom["major_conflicts"] = [
-                    {"over": c.get("over", ""), "intensity": c.get("intensity", 0.5),
-                     "sides": c.get("sides", [])}
-                    for c in conflicts
-                ]
-            hierarchies = relations.get("hierarchies", [])
-            if hierarchies:
-                custom["hierarchies"] = [
-                    {"domain": h.get("domain", ""), "type": h.get("type", "")}
-                    for h in hierarchies
-                ]
+            conflicts_data = relations.get("conflicts", {})
+            if isinstance(conflicts_data, dict):
+                conflict_list = conflicts_data.get("conflicts", [])
+                if conflict_list:
+                    custom["major_conflicts"] = [
+                        {"over": c.get("over", ""), "intensity": c.get("intensity", 0.5),
+                         "sides": c.get("sides", [])}
+                        for c in conflict_list
+                    ]
+                hierarchies = conflicts_data.get("hierarchies", [])
+                if hierarchies:
+                    custom["hierarchies"] = [
+                        {"domain": h.get("domain", ""), "type": h.get("type", "")}
+                        for h in hierarchies
+                    ]
 
         return WorldRules(
             magic_exists=physics.get("magic_exists", False),

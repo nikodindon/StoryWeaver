@@ -44,9 +44,11 @@ class PsychologyPass:
 
             chunk_id = f"{book_id}::psych::{char_name}"
             combined_passages = "\n\n---\n\n".join(char_passages[:20])  # Cap at 20 passages
-            prompt = self.prompt_template.format(
-                character_name=char_name,
-                character_passages=combined_passages[:6000],
+            # Use replace() to avoid conflict with JSON {} braces in the template
+            prompt = self.prompt_template.replace(
+                "{character_name}", char_name
+            ).replace(
+                "{character_passages}", combined_passages[:6000],
             )
 
             cached = self.cache.get(prompt, chunk_id)
