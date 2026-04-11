@@ -1,0 +1,289 @@
+{
+  "source_title": "The Happy Prince",
+  "source_author": "Oscar Wilde",
+  "compiled_at": "2026-04-11T00:00:00",
+  "current_tick": 0,
+  "divergence_score": 0.0,
+  "locations": {
+    "city_square": {
+      "id": "city_square",
+      "name": "The City Square",
+      "description": "A tall column rises from the center of the square. Atop it stands the statue of the Happy Prince, covered in gold leaf and sapphires, overlooking the city. The square is grand but surrounded by narrow alleys where the poor live.",
+      "connections": ["sewing_room", "garret", "balcony"],
+      "objects": ["golden_statue", "column"],
+      "characters_present": ["swallow"],
+      "ambient_state": {"time_of_day": "twilight", "weather": "cold", "mood": "melancholy"},
+      "symbolic_weight": 0.9,
+      "tags": ["central", "symbolic"]
+    },
+    "sewing_room": {
+      "id": "sewing_room",
+      "name": "The Seamstress's Room",
+      "description": "A cramped, dark room in a poor quarter. A young seamstress sits hunched over her work, embroidering passion-flowers on a satin gown for the Queen's next ball. Her sick child lies feverish on a bed in the corner.",
+      "connections": ["city_square"],
+      "objects": ["embroidery", "gown"],
+      "characters_present": ["seamstress"],
+      "ambient_state": {"time_of_day": "evening", "mood": "desperate"},
+      "symbolic_weight": 0.6,
+      "tags": ["poverty", "suffering"]
+    },
+    "garret": {
+      "id": "garret",
+      "name": "The Writer's Garret",
+      "description": "A cold attic under the eaves. A young playwright huddles over his desk, shivering, trying to finish a play for the theater manager. No fire has been lit; he is too cold to work.",
+      "connections": ["city_square"],
+      "objects": ["manuscript"],
+      "characters_present": ["playwright"],
+      "ambient_state": {"time_of_day": "night", "mood": "frozen"},
+      "symbolic_weight": 0.5,
+      "tags": ["art", "poverty"]
+    },
+    "balcony": {
+      "id": "balcony",
+      "name": "The Governor's Balcony",
+      "description": "An elegant marble balcony overlooking the city. A beautiful young lady stands here, gazing at the stars with the Professor of Ornithology beside her. The world is beautiful from up here, if you don't look down.",
+      "connections": ["city_square"],
+      "objects": [],
+      "characters_present": ["governors_daughter", "professor"],
+      "ambient_state": {"time_of_day": "evening", "mood": "romantic"},
+      "symbolic_weight": 0.3,
+      "tags": ["wealth", "oblivion"]
+    }
+  },
+  "characters": {
+    "happy_prince": {
+      "id": "happy_prince",
+      "name": "The Happy Prince",
+      "description": "A gilded statue atop a tall column. Once a prince who lived in a palace where sorrow was not allowed to enter. Now, from his height, he sees all the misery of his city and weeps.",
+      "current_location": "city_square",
+      "is_major": true,
+      "relationships": {
+        "swallow": {
+          "target_id": "swallow",
+          "trust": 0.7,
+          "affection": 0.8,
+          "history": []
+        }
+      },
+      "tags": ["statue", "compassionate", "sacrificial"]
+    },
+    "swallow": {
+      "id": "swallow",
+      "name": "The Swallow",
+      "description": "A small bird who fell in love with a beautiful reed and stayed behind when his friends migrated to Egypt. Now autumn is here, the reed will not speak to him, and Egypt waits.",
+      "current_location": "city_square",
+      "is_major": true,
+      "relationships": {
+        "happy_prince": {
+          "target_id": "happy_prince",
+          "trust": 0.6,
+          "affection": 0.7,
+          "history": []
+        }
+      },
+      "tags": ["messenger", "loyal", "tragic"]
+    },
+    "seamstress": {
+      "id": "seamstress",
+      "name": "The Seamstress",
+      "description": "A poor working woman with a sick child. She embroiders passion-flowers for the Queen's gown while her boy lies burning with fever, asking for oranges.",
+      "current_location": "sewing_room",
+      "is_major": false,
+      "relationships": {},
+      "tags": ["poor", "mother", "suffering"]
+    },
+    "playwright": {
+      "id": "playwright",
+      "name": "The Playwright",
+      "description": "A young writer trying to finish a play. He is cold, hungry, and the theater manager says he must deliver by morning or find another profession.",
+      "current_location": "garret",
+      "is_major": false,
+      "relationships": {},
+      "tags": ["artist", "poor", "desperate"]
+    },
+    "governors_daughter": {
+      "id": "governors_daughter",
+      "name": "The Governor's Daughter",
+      "description": "A beautiful young woman who walks on the balcony with the Professor of Ornithology. She speaks of stars and love, unaware of the suffering below.",
+      "current_location": "balcony",
+      "is_major": false,
+      "relationships": {},
+      "tags": ["wealthy", "naive"]
+    },
+    "professor": {
+      "id": "professor",
+      "name": "The Professor of Ornithology",
+      "description": "A learned man who walks with the Governor's daughter on the balcony, discoursing about the migration of birds while the swallow shivers below.",
+      "current_location": "balcony",
+      "is_major": false,
+      "relationships": {},
+      "tags": ["scholarly", "oblivious"]
+    }
+  },
+  "objects": {
+    "golden_statue": {
+      "id": "golden_statue",
+      "name": "The Gilded Prince",
+      "description": "A statue covered in fine gold leaf, with two bright sapphires for eyes and a large red ruby in his sword-hilt. Beautiful and sad.",
+      "location_id": "city_square",
+      "owner_id": null,
+      "properties": {"value": "very_high", "material": "gold_leaf", "sapphires": 2, "ruby": 1},
+      "interactions": ["examine", "take_sapphire", "take_ruby"],
+      "symbolic_meaning": "Beauty that sees suffering; wealth that can heal",
+      "is_portable": false
+    },
+    "column": {
+      "id": "column",
+      "name": "The Tall Column",
+      "description": "A very tall stone column rising from the center of the city square.",
+      "location_id": "city_square",
+      "owner_id": null,
+      "properties": {"height": "very_tall"},
+      "interactions": ["examine", "climb"],
+      "symbolic_meaning": null,
+      "is_portable": false
+    },
+    "embroidery": {
+      "id": "embroidery",
+      "name": "Passion-Flower Embroidery",
+      "description": "An unfinished satin gown embroidered with passion-flowers for the Queen's next ball.",
+      "location_id": "sewing_room",
+      "owner_id": "seamstress",
+      "properties": {"material": "satin"},
+      "interactions": ["examine"],
+      "symbolic_meaning": "The irony of decorating a gown with symbols of suffering",
+      "is_portable": true
+    },
+    "gown": {
+      "id": "gown",
+      "name": "The Queen's Gown",
+      "description": "A magnificent satin gown awaiting its final embroidery.",
+      "location_id": "sewing_room",
+      "owner_id": null,
+      "properties": {},
+      "interactions": ["examine"],
+      "symbolic_meaning": null,
+      "is_portable": true
+    },
+    "manuscript": {
+      "id": "manuscript",
+      "name": "The Unfinished Play",
+      "description": "A half-finished manuscript for a dramatic play. The writer's hands are too cold to hold the pen.",
+      "location_id": "garret",
+      "owner_id": "playwright",
+      "properties": {"pages": 12},
+      "interactions": ["read", "examine"],
+      "symbolic_meaning": "Art frozen by poverty",
+      "is_portable": true
+    }
+  },
+  "canon_events": [
+    {
+      "id": "canon_0001",
+      "description": "The Swallow takes shelter at the feet of the Happy Prince",
+      "participants": ["swallow", "happy_prince"],
+      "location_id": "city_square",
+      "tick": 0,
+      "is_canon": true,
+      "gravity": 0.9,
+      "triggered_by": null,
+      "consequences": ["canon_0002"],
+      "metadata": {}
+    },
+    {
+      "id": "canon_0002",
+      "description": "The Happy Prince asks the Swallow to carry the ruby to the seamstress",
+      "participants": ["happy_prince", "swallow"],
+      "location_id": "city_square",
+      "tick": 1,
+      "is_canon": true,
+      "gravity": 0.85,
+      "triggered_by": "canon_0001",
+      "consequences": ["canon_0003"],
+      "metadata": {}
+    },
+    {
+      "id": "canon_0003",
+      "description": "The Swallow delivers the ruby to the seamstress's sick child",
+      "participants": ["swallow", "seamstress"],
+      "location_id": "sewing_room",
+      "tick": 2,
+      "is_canon": true,
+      "gravity": 0.8,
+      "triggered_by": "canon_0002",
+      "consequences": ["canon_0004"],
+      "metadata": {}
+    },
+    {
+      "id": "canon_0004",
+      "description": "The Prince gives a sapphire to the freezing playwright",
+      "participants": ["happy_prince", "swallow", "playwright"],
+      "location_id": "garret",
+      "tick": 4,
+      "is_canon": true,
+      "gravity": 0.75,
+      "triggered_by": "canon_0003",
+      "consequences": ["canon_0005"],
+      "metadata": {}
+    },
+    {
+      "id": "canon_0005",
+      "description": "The Prince gives his second sapphire to the match-girl",
+      "participants": ["happy_prince", "swallow"],
+      "location_id": "city_square",
+      "tick": 6,
+      "is_canon": true,
+      "gravity": 0.7,
+      "triggered_by": "canon_0004",
+      "consequences": [],
+      "metadata": {}
+    },
+    {
+      "id": "canon_0006",
+      "description": "The Swallow stays with the Prince and dies of cold",
+      "participants": ["swallow", "happy_prince"],
+      "location_id": "city_square",
+      "tick": 8,
+      "is_canon": true,
+      "gravity": 0.95,
+      "triggered_by": "canon_0005",
+      "consequences": ["canon_0007"],
+      "metadata": {}
+    },
+    {
+      "id": "canon_0007",
+      "description": "The Prince's lead heart breaks in two",
+      "participants": ["happy_prince"],
+      "location_id": "city_square",
+      "tick": 9,
+      "is_canon": true,
+      "gravity": 0.95,
+      "triggered_by": "canon_0006",
+      "consequences": [],
+      "metadata": {}
+    }
+  ],
+  "gravity_map": {
+    "canon_0001": 0.9,
+    "canon_0002": 0.85,
+    "canon_0003": 0.8,
+    "canon_0004": 0.75,
+    "canon_0005": 0.7,
+    "canon_0006": 0.95,
+    "canon_0007": 0.95
+  },
+  "rules": {
+    "magic_exists": false,
+    "death_is_permanent": true,
+    "travel_costs_time": true,
+    "information_spreads": false,
+    "canon_gravity": 0.7,
+    "author_ghost_enabled": true,
+    "divergence_tracking": true,
+    "custom": {
+      "compassion_drives_action": true,
+      "winter_is_coming": "The cold intensifies as the story progresses",
+      "wealth_can_heal": "The Prince's gold and gems can relieve suffering"
+    }
+  }
+}
