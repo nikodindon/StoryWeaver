@@ -1,0 +1,50 @@
+# StoryWeaver Engine — Default Configuration
+
+engine:
+  version: "0.1.0"
+  data_dir: "data"
+  cache_dir: "data/cache"
+
+extraction:
+  chunk_size_tokens: 2000
+  micro_chunk_size_tokens: 500
+  max_parallel_calls: 1        # Increase if your hardware supports it
+  cache_enabled: true
+  passes:
+    - structure
+    - relations
+    - psychology
+    - symbolism
+
+simulation:
+  tick_rate: 1                 # Ticks between player actions
+  author_ghost_enabled: true
+  canon_gravity_default: 0.6  # 0.0 = full sandbox, 1.0 = strict canon
+  divergence_threshold: 0.8   # Above this, Author Ghost is disabled
+  
+  tick_tiers:
+    primary_frequency: 1
+    secondary_frequency: 3
+    background_frequency: 10
+
+memory:
+  vector_store_backend: "faiss"
+  embedding_model: "nomic-embed-text"
+  retrieval_top_k: 5
+  recency_weight: 0.3
+  max_episodic_events: 200     # Before compression kicks in
+
+narrative:
+  max_output_tokens: 300
+  style_matching: true         # Try to match author's prose style
+  narrator_temperature: 0.75
+
+interaction:
+  use_llm_fallback_parser: true
+  fallback_temperature: 0.2
+  command_history_size: 50
+
+cli:
+  show_tick_info: true
+  show_divergence_score: false
+  color_output: true

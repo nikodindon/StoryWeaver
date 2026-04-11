@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "storyweaver-engine"
+version = "0.1.0"
+description = "Transform any book into a living, playable world powered by local AI"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+
+dependencies = [
+    # LLM
+    "openai>=1.0.0",          # llama.cpp server uses OpenAI-compatible API
+    "tiktoken>=0.5.0",
+
+    # Data / graph
+    "networkx>=3.2",
+    "faiss-cpu>=1.7.4",
+
+    # Serialization
+    "pydantic>=2.5",
+    "msgpack>=1.0",
+    "orjson>=3.9",
+
+    # Book parsing
+    "ebooklib>=0.18",
+    "pypdf>=3.17",
+    "beautifulsoup4>=4.12",
+
+    # Embedding
+    "sentence-transformers>=2.2",
+
+    # CLI
+    "typer>=0.9",
+    "rich>=13.7",
+
+    # Utilities
+    "pyyaml>=6.0",
+    "tqdm>=4.66",
+    "loguru>=0.7",
+    "tenacity>=8.2",     # Retry logic for LLM calls
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+    "ipykernel>=6.26",
+    "jupyter>=1.0",
+]
+
+[project.scripts]
+storyweaver = "storyweaver.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["storyweaver*"]

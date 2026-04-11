@@ -1,0 +1,64 @@
+You are analyzing a character from a literary work to build a precise psychological model.
+
+CHARACTER: {character_name}
+
+PASSAGES (all text featuring this character):
+{character_passages}
+
+---
+
+Your task: produce a detailed JSON psychological profile of this character.
+
+Analyze their:
+- Actions across the story (what they actually DO, not what they say about themselves)
+- Dialogue style (how they speak, what they avoid saying)
+- Reactions to stress and conflict
+- Stated and unstated motivations
+- Relationships with others
+- Contradictions and internal conflicts
+
+Respond ONLY with valid JSON. No preamble. No explanation.
+
+Schema:
+{
+  "character_id": "snake_case_name",
+  "name": "Full Name",
+  "psychology": {
+    "big_five": {
+      "openness": 0.0,
+      "conscientiousness": 0.0,
+      "extraversion": 0.0,
+      "agreeableness": 0.0,
+      "neuroticism": 0.0
+    },
+    "narrative_traits": {
+      "courage": 0.0,
+      "loyalty": 0.0,
+      "deceptiveness": 0.0,
+      "impulsivity": 0.0,
+      "secretiveness": 0.0,
+      "ambition": 0.0,
+      "compassion": 0.0
+    },
+    "core_fear": "string — what does this character fear most deeply?",
+    "core_desire": "string — what do they want above all else?",
+    "cognitive_style": "string — how do they think and make decisions?",
+    "speech_patterns": ["list", "of", "observable", "speech", "tendencies"],
+    "contradictions": ["internal", "tensions", "in", "their", "character"]
+  },
+  "knowledge": {
+    "canonical": ["list of key facts this character knows at story start"],
+    "secrets": ["things they know but don't reveal to others"]
+  },
+  "goals_initial": [
+    {
+      "goal": "description",
+      "priority": 0.0,
+      "notes": "why this goal, context"
+    }
+  ],
+  "behavioral_constraints": [
+    "things this character would never do",
+    "hard limits on their behavior"
+  ]
+}

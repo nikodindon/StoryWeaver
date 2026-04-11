@@ -1,0 +1,42 @@
+# StoryWeaver Engine — Model Configuration
+# All models assumed to be served via llama.cpp --server (OpenAI-compatible API)
+
+llm:
+  base_url: "http://localhost:8080/v1"
+  api_key: "not-needed"       # llama.cpp doesn't require an API key
+
+  # Model assignment per task
+  # Point these at whatever GGUF model you have loaded
+  models:
+    extraction_heavy: "mistral-22b"      # Pass 3 (psychology), Pass 4 (symbolism)
+    extraction_fast: "mistral-22b"       # Pass 1 + 2 (structure, relations)
+    agent_narration: "mistral-7b"        # Fast narrative output
+    agent_decision: "mistral-7b"         # Tick-level agent decisions
+    author_ghost: "mistral-22b"          # Needs subtlety
+    parser_fallback: "mistral-7b"        # Intent parsing fallback
+
+  # Generation params (per task type)
+  params:
+    extraction:
+      temperature: 0.1          # Low temp for structured JSON output
+      max_tokens: 1024
+      repeat_penalty: 1.1
+
+    narration:
+      temperature: 0.75
+      max_tokens: 400
+      repeat_penalty: 1.15
+
+    decision:
+      temperature: 0.5
+      max_tokens: 200
+      repeat_penalty: 1.1
+
+    ghost:
+      temperature: 0.4
+      max_tokens: 150
+
+embeddings:
+  model: "nomic-embed-text"     # Run via llama.cpp or sentence-transformers
+  base_url: "http://localhost:8080/v1"
+  dimension: 768

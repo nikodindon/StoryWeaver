@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Data — don't commit raw books or compiled worlds
+data/raw/
+data/processed/
+data/compiled/
+data/cache/
+*.bundle
+
+# Env
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Qwen Code local settings
+.qwen/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Keep directory structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/compiled/.gitkeep
+!data/cache/.gitkeep
+!examples/books/.gitkeep
+!examples/worlds/.gitkeep
+!examples/sessions/.gitkeep
