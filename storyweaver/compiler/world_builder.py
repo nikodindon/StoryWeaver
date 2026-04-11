@@ -44,9 +44,9 @@ class WorldBuilder:
         relations = extraction.get("relations", {})
         symbolism = extraction.get("symbolism", {})
 
-        # 1. Build world rules
+        # 1. Build world rules (using symbolism + relations)
         logger.info("  Building world rules...")
-        rules = RulesBuilder(self.llm).build(symbolism, structure)
+        rules = RulesBuilder(self.llm).build(symbolism, structure, relations)
 
         # 2. Build location graph
         logger.info("  Building location graph...")

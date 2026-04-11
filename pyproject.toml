@@ -50,6 +50,9 @@ dev = [
     "ipykernel>=6.26",
     "jupyter>=1.0",
 ]
+web = [
+    "gradio>=4.0",
+]
 
 [project.scripts]
 storyweaver = "storyweaver.cli.main:app"
