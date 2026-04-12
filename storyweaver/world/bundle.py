@@ -44,7 +44,8 @@ class WorldBundle:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def load(cls, path: Path) -> "WorldBundle":
+    def load(cls, path: Path | str) -> "WorldBundle":
+        path = Path(path) if isinstance(path, str) else path
         with open(path / "bundle.json") as f:
             data = json.load(f)
         return cls.from_dict(data)
