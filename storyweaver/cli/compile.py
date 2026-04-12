@@ -13,9 +13,7 @@ console = Console()
 
 def run_compile(book_path: str, model: str, output_name: Optional[str] = None) -> None:
     """Compile a book into a playable world bundle."""
-    from ..ingestion.loader import BookLoader
-    from ..ingestion.cleaner import TextCleaner
-    from ..ingestion.segmenter import Segmenter
+    from ..ingestion.loader import load_book
     from ..models.llamacpp_client import LlamaCppClient
     from ..extraction.pipeline import ExtractionPipeline
     from ..compiler.world_builder import WorldBuilder
@@ -56,18 +54,17 @@ def run_compile(book_path: str, model: str, output_name: Optional[str] = None) -
         # Step 1: Ingest
         task = progress.add_task("[cyan]Ingesting book...", total=None)
         logger.info(f"Ingesting book: {book_file}")
-        book_meta, raw_text = BookLoader.load(book_file)
-        cleaner = TextCleaner()
-        cleaned = cleaner.clean(raw_text)
-        segmenter = Segmenter(chunk_size=default_config.get("extraction", {}).get("chunk_size_tokens", 2000))
-        segments = segmenter.segment(cleaned)
+        book_data = load_book(book_file)
+        book_meta = {"title": book_data["title"], "author": book_data["author"]}
+        segments = book_data["segments"]
+        cleaned = book_data["raw_text"]
 
         # Save processed text and segments
         processed_dir.mkdir(parents=True, exist_ok=True)
         with open(processed_dir / "cleaned.txt", "w") as f:
             f.write(cleaned)
+        import json
         with open(processed_dir / "segments.json", "w") as f:
-            import json
             json.dump(segments, f, indent=2)
 
         logger.info(f"  Ingested: {len(segments)} segments, {len(cleaned)} chars")
@@ -76,8 +73,9 @@ def run_compile(book_path: str, model: str, output_name: Optional[str] = None) -
         # Step 2: Extract
         progress.update(task, description="[cyan]Running extraction... (this may take a while)")
         logger.info("Starting extraction pipeline")
-        base_url = models_config.get("llamacpp", {}).get("base_url", "http://localhost:8080/v1")
-        llm = LlamaCppClient(base_url=base_url)
+        base_url = models_config.get("llm", {}).get("base_url", "http://localhost:8090/v1")
+        model_name = models_config.get("llm", {}).get("models", {}).get("extraction_heavy", model)
+        llm = LlamaCppClient(base_url=base_url, model=model_name)
         pipeline = ExtractionPipeline(llm, cache_dir, default_config.get("extraction", {}))
         extraction = pipeline.run(segments, output_name)
         progress.update(task, description="[green]✓ Extraction complete[/green]")

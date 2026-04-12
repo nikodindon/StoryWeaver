@@ -8,12 +8,12 @@ llm:
   # Model assignment per task
   # Point these at whatever GGUF model you have loaded
   models:
-    extraction_heavy: "mistral-22b"      # Pass 3 (psychology), Pass 4 (symbolism)
-    extraction_fast: "mistral-22b"       # Pass 1 + 2 (structure, relations)
-    agent_narration: "mistral-7b"        # Fast narrative output
-    agent_decision: "mistral-7b"         # Tick-level agent decisions
-    author_ghost: "mistral-22b"          # Needs subtlety
-    parser_fallback: "mistral-7b"        # Intent parsing fallback
+    extraction_heavy: "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+    extraction_fast: "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+    agent_narration: "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+    agent_decision: "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+    author_ghost: "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+    parser_fallback: "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
 
   # Generation params (per task type)
   params:

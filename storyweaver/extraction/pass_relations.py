@@ -184,9 +184,10 @@ class RelationsPass:
         return social_graph
 
     def _find_pairs(self, char_names: List[str], segments: List[Dict]) -> Dict:
-        """Find all character pairs that co-occur in at least one segment."""
+        """Find character pairs that co-occur in at least 2 segments."""
         # For each segment, find all characters mentioned
-        pairs: Dict[tuple, List[str]] = {}
+        pair_counts: Dict[tuple, int] = {}
+        pair_texts: Dict[tuple, List[str]] = {}
 
         for seg in segments:
             text_lower = seg["text"].lower()
@@ -197,11 +198,18 @@ class RelationsPass:
                 for j in range(i + 1, len(present)):
                     a, b = present[i], present[j]
                     key = (a, b) if a < b else (b, a)
-                    if key not in pairs:
-                        pairs[key] = []
-                    pairs[key].append(seg["text"])
+                    if key not in pair_counts:
+                        pair_counts[key] = 0
+                        pair_texts[key] = []
+                    pair_counts[key] += 1
+                    pair_texts[key].append(seg["text"])
 
-        return pairs
+        # Cap at top 5 pairs by co-occurrence frequency to keep runtime manageable
+        pairs_sorted = sorted(pair_texts.items(), key=lambda x: pair_counts[x[0]], reverse=True)
+        result = {}
+        for key, texts in pairs_sorted[:5]:
+            result[key] = texts
+        return result
 
     # ── Conflicts & alliances ──────────────────────────────────────────────
 

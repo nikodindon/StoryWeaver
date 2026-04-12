@@ -57,7 +57,7 @@ class LlamaCppClient(LLMClient):
         response = requests.post(
             f"{url}/chat/completions",
             json=payload,
-            timeout=120,
+            timeout=600,  # 10 min — local inference can be slow
         )
         response.raise_for_status()
         content = response.json()["choices"][0]["message"]["content"]
