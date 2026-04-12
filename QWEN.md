@@ -110,7 +110,12 @@ The project is in **V1 — Prototype** phase per the roadmap. Key modules exist 
 
 We are currently testing with **Harry Potter and the Sorcerer's Stone**:
 - **EPUB ingested** — 83 segments extracted to `data/processed/harry_potter_1/`
-- **Extraction** — 4-pass LLM pipeline running (check: `dir /b data\cache\harry_potter_1\*.json | find /c /v ""`)
+- **Extraction** — 4-pass LLM pipeline running OVERNIGHT (started ~21:46)
+  * Pass 1: ✅ Structure (165 chars, 127 locations, 229 objects, 418 events)
+  * Pass 2: ✅ Relations (5 social edges, 4 conflicts, 0 timeline — parse fail)
+  * Pass 3: ⏳ Psychology (86 major characters after name variant resolution)
+  * Pass 4: ⏳ Symbolism (pending)
+  * **Code fix applied**: Name variant resolution (Ron + Ron Weasley → one entity)
 - **Cleaning script ready** — `scripts/clean_extraction.py` (run after extraction completes)
 - **Compilation ready** — `scripts/compile_hp_world.py --cleaned`
 - **Cover art ready** — `images/Harry Potter 01 Harry Potter and the Sorcerer's Stone/*.png`
@@ -119,9 +124,15 @@ We are currently testing with **Harry Potter and the Sorcerer's Stone**:
 - **Monitoring** — `scripts/monitor_extraction.ps1` (auto-checks every 10 min)
 - **Documentation** — `data/HARRY_POTTER_COMPILATION_GUIDE.md` (complete walkthrough)
 
+#### Known Issues (to fix in V1.1 with Stephen King tests):
+- **Pass 1 false-positive characters**: Places ("Hogwarts School"), objects ("Weasley sweater"), animals ("tabby cat"), creatures ("mountain troll") are extracted as "characters"
+- **Timeline parse failure**: LLM produces invalid JSON for timeline extraction
+- **6 segments with JSON parse failures**: LLM produces malformed JSON for some chunks
+- **No entity type validation**: Need to filter non-human "characters" before psychology pass
+
 #### Compilation Plan (when extraction finishes):
 ```bash
-# Step 1: Clean extraction
+# Step 1: Clean extraction (fix duplicates, filter trivial objects)
 python scripts/clean_extraction.py harry_potter_1
 
 # Step 2: Compile cleaned world
@@ -130,6 +141,32 @@ python scripts/compile_hp_world.py --cleaned
 # Step 3: Test web UI
 python scripts/web_ui_v2.py
 ```
+
+### Development Strategy — Iterative Improvement
+
+**Phase 1: HP Moonshot** *(current — overnight extraction)*
+- Goal: End-to-end pipeline validation
+- Expected: First playable demo (imperfect but functional)
+- Lesson: Identify structural issues at scale
+
+**Phase 2: Stephen King Short Stories** *(planned — rapid iteration)*
+- Test work: *Macabre* collection (EPUB, multiple short stories)
+- Why: Short stories = fast iteration (minutes vs hours)
+- Goals:
+  - Fix Pass 1 false-positive characters
+  - Improve extraction prompts
+  - Add entity type validation
+  - Test cleaning pipeline on diverse inputs
+
+**Phase 3: Engine Refinement**
+- Apply learnings from Phase 1 & 2
+- Fix root causes, not just symptoms
+- Add automated tests for extraction quality
+
+**Phase 4: Return to Harry Potter**
+- Re-extract with improved engine
+- Compare V1 vs V2 quality
+- Full polished HP demo
 
 ## Building and Running
 

@@ -96,6 +96,36 @@ python scripts/web_ui_v2.py
 
 ---
 
+## 🧪 Development Strategy — Iterate Fast, Learn Faster
+
+Our approach to building the best possible engine:
+
+### Phase 1: Harry Potter Moonshot *(current)*
+- **Goal**: End-to-end pipeline validation on a full novel
+- **Status**: Extraction running overnight (4-pass LLM pipeline)
+- **Expected**: First playable demo tomorrow morning
+- **Lesson**: Identify structural issues at scale (165 characters extracted, name variants, trivial objects)
+
+### Phase 2: Stephen King Short Stories *(planned)*
+- **Why**: Short stories = fast iteration cycles (minutes vs hours)
+- **What**: Test extraction quality, cleaning pipeline, compilation on controlled inputs
+- **Goal**: Identify and fix root causes of extraction noise
+- **Works planned**: *Macabre* collection + other Stephen King short stories
+
+### Phase 3: Engine Refinement
+- **Based on**: Learnings from Phase 1 & 2
+- **Focus**: Fix Pass 1 extraction quality (reduce false-positive characters)
+- **Add**: Name variant resolution, entity type validation, better prompts
+
+### Phase 4: Return to Harry Potter
+- **Goal**: Re-extract and re-compile with the improved engine
+- **Expectation**: Cleaner world, fewer false characters, better agent quality
+- **Measure**: Compare V1 vs V2 quality side-by-side
+
+**This iterative approach means we ship fast, learn faster, and build a genuinely good engine — not just one that works on paper.**
+
+---
+
 ## ✨ How It Works
 
 ```
@@ -743,13 +773,30 @@ See `data/HARRY_POTTER_COMPILATION_GUIDE.md` for a complete walkthrough.
 - [x] **LLM narrator** integration
 - [x] **Quick Action buttons** (Look, Wait, Inventory, Help)
 - [x] **Extraction cleaning pipeline** (dedup, filter, resolve)
-- [ ] **🎬 Harry Potter full demo** — End-to-end compilation ⏳ In Progress
+- [x] **Name variant resolution** (Ron + Ron Weasley → one entity)
+- [ ] **🎬 Harry Potter V1 demo** — First end-to-end compilation ⏳ Extraction running overnight
 - [ ] Single character agent (protagonist)
 - [ ] Narrator output generation
 
+### V1.1 — Extraction Quality *(next — Stephen King short stories)*
+
+- [ ] Fix Pass 1 false-positive characters (places, objects, animals marked as "characters")
+- [ ] Entity type validation (reject non-human entities from character list)
+- [ ] Better extraction prompts with examples
+- [ ] Character quality scoring
+- [ ] Test on Stephen King short stories (*Macabre* collection)
+- [ ] Rapid iteration: extract → compile → evaluate → fix → repeat
+
+### V1.2 — Harry Potter V2 *(return with improved engine)*
+
+- [ ] Re-extract Harry Potter with improved Pass 1
+- [ ] Compare V1 vs V2 quality metrics
+- [ ] Validate: fewer false characters, better agent quality
+- [ ] Full playable HP demo: cover + music + voice + agents
+
 ### V2 — Multi-Agent World
 
-- [ ] Full 4-pass extraction pipeline
+- [ ] Full 4-pass extraction pipeline (all passes working)
 - [ ] All named characters as agents
 - [ ] Per-agent memory + system prompts
 - [ ] Tick-based world evolution

@@ -28,15 +28,93 @@ class PsychologyPass:
         prompt_path = Path(__file__).parent / "prompts" / "character_psychology.txt"
         self.prompt_template = prompt_path.read_text()
 
+    def _resolve_name_variants(self, characters: List[Dict]) -> Dict[str, List[str]]:
+        """
+        Group character names that likely refer to the same entity.
+
+        Strategy:
+        - For each character name, find all other names that are substrings
+          or contain it (e.g. "Ron" ↔ "Ron Weasley" ↔ "Weasley")
+        - Returns: {canonical_name: [variant1, variant2, ...]}
+
+        The canonical name is the LONGEST variant (most complete form).
+        """
+        all_names = sorted(set(c["name"] for c in characters), key=len, reverse=True)
+        resolved: Dict[str, List[str]] = {}  # canonical -> [variants]
+        assigned = set()  # names already assigned to a group
+
+        for name in all_names:
+            if name in assigned:
+                continue
+
+            # Find all names that overlap with this one
+            variants = [name]
+            assigned.add(name)
+
+            for other in all_names:
+                if other == name or other in assigned:
+                    continue
+                name_lower = name.lower()
+                other_lower = other.lower()
+
+                # Check if one is contained in the other
+                # "ron" in "ron weasley" or "weasley" in "ron weasley"
+                if (other_lower in name_lower or name_lower in other_lower):
+                    # Additional check: they must share at least one word
+                    name_words = set(name_lower.split())
+                    other_words = set(other_lower.split())
+                    if name_words & other_words:  # intersection non vide
+                        variants.append(other)
+                        assigned.add(other)
+
+            # Canonical = longest name (most descriptive)
+            canonical = max(variants, key=len)
+            resolved[canonical] = variants
+
+        return resolved
+
     def run(self, segments: List[Dict], characters: List[Dict], book_id: str) -> Dict:
         psychology_models = {}
-        major_chars = [c for c in characters if c.get("is_major", True)]
 
-        logger.info(f"  Building psychology for {len(major_chars)} major characters")
+        # ── Step 1: Resolve name variants ──
+        # "Ron" + "Ron Weasley" + "Weasley" → one group
+        name_groups = self._resolve_name_variants(characters)
+        logger.info(f"  Resolved {len(characters)} character names → "
+                    f"{len(name_groups)} unique entities")
 
-        for char in tqdm(major_chars, desc="Pass 3: Psychology"):
-            char_name = char["name"]
-            char_passages = self._collect_passages(char_name, segments)
+        # Log the groupings for debugging
+        for canonical, variants in sorted(name_groups.items(), key=lambda x: -len(x[1])):
+            if len(variants) > 1:
+                logger.debug(f"    '{canonical}' ← {variants}")
+
+        # ── Step 2: Filter by segment count (using ALL variants) ──
+        min_segment_count = 3
+        canonical_chars: Dict[str, List[str]] = {}  # canonical -> [variants]
+
+        for canonical, variants in name_groups.items():
+            # Count segments mentioning ANY variant of this name
+            total_count = sum(
+                1 for seg in segments
+                if any(v.lower() in seg["text"].lower() for v in variants)
+            )
+
+            if total_count >= min_segment_count:
+                # Find the original character dict for metadata
+                char_data = next(
+                    (c for c in characters if c["name"] == canonical),
+                    {"name": canonical, "is_major": True, "description": ""}
+                )
+                canonical_chars[canonical] = variants
+            else:
+                logger.debug(f"  Skipping '{canonical}' ({variants}) — only in {total_count} segment(s)")
+
+        logger.info(f"  Building psychology for {len(canonical_chars)} major characters "
+                    f"(filtered from {len(characters)} total, min {min_segment_count} segments)")
+
+        # ── Step 3: Extract psychology for each canonical character ──
+        for char_name, variants in tqdm(canonical_chars.items(), desc="Pass 3: Psychology"):
+            # Collect passages mentioning ANY variant
+            char_passages = self._collect_passages_variants(variants, segments)
 
             if not char_passages:
                 logger.warning(f"  No passages found for {char_name}, skipping")
@@ -68,6 +146,20 @@ class PsychologyPass:
                 psychology_models[char_name.lower().replace(" ", "_")] = parsed
 
         return psychology_models
+
+    def _collect_passages_variants(self, variants: List[str], segments: List[Dict]) -> List[str]:
+        """Find all segments that mention ANY of the name variants."""
+        passages = []
+        for seg in segments:
+            text_lower = seg["text"].lower()
+            if any(v.lower() in text_lower for v in variants):
+                passages.append(seg["text"])
+        return passages
+
+    def _count_segments(self, char_name: str, segments: List[Dict]) -> int:
+        """Count how many segments mention this character."""
+        name_lower = char_name.lower()
+        return sum(1 for seg in segments if name_lower in seg["text"].lower())
 
     def _collect_passages(self, char_name: str, segments: List[Dict]) -> List[str]:
         """Find all segments that mention this character."""
