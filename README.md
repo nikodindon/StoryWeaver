@@ -12,7 +12,91 @@ Everything runs locally. No cloud. No API keys. Powered by [llama.cpp](https://g
 
 ---
 
-## ✨ Overview
+## 🎬 FEATURED DEMO — Harry Potter & the Sorcerer's Stone *(In Progress)*
+
+> **A full book → playable world compilation, end-to-end.**
+
+We are currently building a **complete immersive demo** from the first Harry Potter novel. Here's what it will look like:
+
+### What You'll Experience
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🖼️  [Harry Potter Movie Cover Art]                       │
+│  🎵  "Hedwig's Theme" playing via Icecast                   │
+│  🎙️  Narration voice (edge_tts) — coming soon              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  You stand at King's Cross Station. The platform signs      │
+│  blur between "9" and "10" as you approach the barrier.     │
+│  A red-haired family chats nearby. Their son holds a cage   │
+│  with a snowy owl inside.                                   │
+│                                                             │
+│  > follow the weasleys                                      │
+│                                                             │
+│  You watch as they pass straight through the barrier        │
+│  between platforms 9 and 10, vanishing into thin air.       │
+│  The Hogwarts Express looms ahead, steam billowing...       │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### The Full Pipeline (Being Built Right Now)
+
+| Step | Status | Description |
+|---|---|---|
+| **1. Ingestion** | ✅ Done | 83 segments extracted from EPUB |
+| **2. Extraction** | ⏳ Running | 4-pass LLM pipeline (74/83 segments, ~89%) |
+| **3. Cleaning** | ✅ Ready | Dedup, name resolution, filtering (60+ mappings) |
+| **4. Compilation** | ✅ Ready | World bundle with characters, locations, events |
+| **5. Web UI** | ✅ Done | Gradio interface with cover art + music |
+| **6. Voice (TTS)** | 🔜 Planned | edge_tts for character voices & narration |
+
+### What Makes This Demo Special
+
+**🏰 A Living World Extracted from Text**
+- Every named character becomes an **autonomous AI agent**
+- Harry, Hermione, Ron, Dumbledore, Snape, Draco... each with personality, goals, memory
+- 15+ locations with connections (Privet Drive → Diagon Alley → Hogwarts → ...)
+- Canon events with **narrative gravity** — the world pulls you toward the story, but you can diverge
+
+**🎵 Immersive Atmosphere**
+- Cover art from the film displayed on load
+- Full John Williams OST streaming via Icecast
+- 🎙️ Voice narration planned (edge_tts with per-character voices)
+
+**🧠 Intelligent Cleaning Pipeline**
+The raw LLM extraction has issues — we fix them:
+- `"harry"` + `"Harry Potter"` → merged to `"Harry Potter"`
+- `"you-know-who"` → resolved to `"Lord Voldemort"`
+- 50 duplicate desserts → filtered out
+- Bad relationship IDs → resolved to canonical characters
+
+**⚡ Rich Web UI**
+- Dark theme (Catppuccin Mocha)
+- Quick actions: Look, Wait, Inventory, Help
+- Save/Load system with auto-save
+- Live world context panel
+- Character dialogue with memory
+
+### Follow the Journey
+
+This demo is being built **in real-time**. Every step is documented:
+- 📋 `data/HARRY_POTTER_COMPILATION_GUIDE.md` — Full walkthrough
+- 📊 Extraction monitoring — Every 10 minutes
+- 🔧 Open source — You can follow along and contribute
+
+**When it's done, you'll be able to:**
+```bash
+git clone https://github.com/nikodindon/StoryWeaver
+cd StoryWeaver
+python scripts/web_ui_v2.py
+# → Load harry_potter_1 → Enter the world
+```
+
+---
+
+## ✨ How It Works
 
 ```
 Book (EPUB / TXT / PDF)
@@ -83,6 +167,24 @@ StoryWeaver now includes a **feature-rich Gradio web interface** (`scripts/web_u
 - **🎭 LLM-Generated Scenes** — Dynamic narration powered by your local LLM
 - **⚡ Quick Actions** — One-click commands: Look, Wait, Inventory, Help
 - **📋 Rich World Context** — Live display of locations, characters, and world state
+
+### 🎙️ Voice Narration *(Planned — edge_tts)*
+
+We're integrating **edge_tts** to bring the world to life with voice:
+
+- **📖 Narrator voice** — Scene descriptions read aloud with a British voice
+- **🎭 Per-character voices** — Each character speaks with a unique voice
+- **🌍 Multi-language** — French, English, 100+ voices available
+- **💾 Free & local** — No API keys, no quotas, runs on your machine
+
+Example:
+```
+> talk to dumbledore
+
+🔊 [Voice: en-GB-ThomasNeural]
+"Ah, Harry. I was wondering when you'd arrive.
+ Curious things, dreams, don't you think?"
+```
 
 ---
 
@@ -640,9 +742,10 @@ See `data/HARRY_POTTER_COMPILATION_GUIDE.md` for a complete walkthrough.
 - [x] **Save/Load system** with auto-save
 - [x] **LLM narrator** integration
 - [x] **Quick Action buttons** (Look, Wait, Inventory, Help)
+- [x] **Extraction cleaning pipeline** (dedup, filter, resolve)
+- [ ] **🎬 Harry Potter full demo** — End-to-end compilation ⏳ In Progress
 - [ ] Single character agent (protagonist)
 - [ ] Narrator output generation
-- [ ] llama.cpp integration (extraction pipeline)
 
 ### V2 — Multi-Agent World
 
@@ -653,6 +756,7 @@ See `data/HARRY_POTTER_COMPILATION_GUIDE.md` for a complete walkthrough.
 - [ ] Persistent save/load
 - [ ] Dialogue system
 - [ ] Object interaction system
+- [ ] 🎙️ **Voice narration (edge_tts)** — Per-character voices
 
 ### V3 — Simulation Depth
 
@@ -662,6 +766,7 @@ See `data/HARRY_POTTER_COMPILATION_GUIDE.md` for a complete walkthrough.
 - [ ] Divergence tracking + canon scoring
 - [ ] Dynamic relationship evolution
 - [ ] Event cascading (actions have side effects)
+- [ ] Audiobook mode — Full voice narration
 
 ### V4 — Full Engine
 
