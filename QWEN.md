@@ -59,6 +59,47 @@ The project is in **V1 — Prototype** phase per the roadmap. Key modules exist 
 - **LLM clients** (`storyweaver/models/`): `LLMClient` interface + `LlamaCppClient` for llama.cpp server
 - **Agents, Simulation, Memory, Narrative, Interaction**: Module directories exist with `__init__.py` files — implementation is pending
 
+### Recently Added Features (April 2026)
+
+#### 🌐 Gradio Web UI v2 (`scripts/web_ui_v2.py`)
+- **Rich interactive web interface** with Gradio framework
+- **LLM-generated scene descriptions** with fallback to static text
+- **Save/Load system** — persistent game sessions to disk
+- **Auto-save** every 10 actions
+- **Quick Action buttons** — Look, Wait, Inventory, Help
+- **Character dialogue** with memory integration
+- **Rich world context panel** — live display of world state
+
+#### 🖼️ Cover Art System
+- **Auto-discovery** of cover images from `images/<world_name>/` directory
+- **Supports** PNG, JPG, JPEG, WEBP formats
+- **Fallback** to root `images/` directory with name matching
+- **Displayed** when world is loaded in web UI
+
+#### 🎵 Icecast Music Streaming
+- **IcecastStreamer class** (`scripts/icecast_streamer.py`) — ffmpeg-based playlist streaming
+- **Auto-detection** of OST from `audio/<world_name>/` directory
+- **Icecast integration** — streams to configured mount point (default `/nova`)
+- **Play/Pause/Stop controls** in web UI
+- **Shuffle support** — randomizes playlist order
+- **Singleton pattern** — one streamer instance per session
+
+#### 💾 Game Session Management
+- **GameStateManager** — save/load game state to disk
+- **Auto-save** every 10 actions (configurable)
+- **Save metadata** — tick count, location, world name, timestamp
+- **Multiple saves** — list and select from available saves
+
+### Current Harry Potter Test Case
+
+We are currently testing with **Harry Potter and the Sorcerer's Stone**:
+- **EPUB ingested** — 83 segments extracted to `data/processed/harry_potter_1/`
+- **Extraction running** — 4-pass LLM pipeline in background (PID 25300)
+- **Cover art ready** — `images/Harry Potter 01 Harry Potter and the Sorcerer's Stone/*.png`
+- **OST ready** — 19 John Williams tracks in `audio/Harry Potter 01 Harry Potter and the Sorcerer's Stone/`
+- **Icecast server** — running on `localhost:8000` with mount `/nova`
+- **Compilation script** — `scripts/compile_hp_world.py` ready to run post-extraction
+
 ## Building and Running
 
 ### Prerequisites
@@ -66,6 +107,9 @@ The project is in **V1 — Prototype** phase per the roadmap. Key modules exist 
 - Python 3.11+
 - A running **llama.cpp server** (`llama-server`) with a GGUF model loaded
 - GGUF models recommended: Mistral-22B, Mixtral-8x7B, or Qwen2.5-32B
+- **Gradio** — for web UI (`pip install gradio`)
+- **ffmpeg** — for Icecast music streaming
+- **Icecast2** — local streaming server (optional, for music)
 
 ### Setup
 
@@ -84,6 +128,9 @@ pip install -e ".[dev]"
 ```bash
 # Start llama.cpp server (OpenAI-compatible API on port 8080)
 llama-server -m your-model.gguf --port 8080 --ctx-size 8192
+
+# Or use port 8090 (our current setup)
+llama-server -m your-model.gguf --port 8090 --ctx-size 8192
 ```
 
 Model URLs and task assignments are configured in `configs/models.yaml`.
@@ -100,6 +147,55 @@ storyweaver play alice_in_wonderland
 # Inspect a compiled world
 storyweaver inspect alice_in_wonderland --show characters
 storyweaver inspect alice_in_wonderland --character "The Queen of Hearts"
+```
+
+### Web UI Usage
+
+```bash
+# Launch Gradio web interface
+python scripts/web_ui_v2.py
+
+# Open in browser: http://localhost:7860
+```
+
+Features:
+- Select and load a world
+- Cover art auto-displays if found in `images/<world_name>/`
+- Music auto-streams if OST found in `audio/<world_name>/`
+- Type commands or use Quick Action buttons
+- Save/load game sessions
+
+### Icecast Setup (for music streaming)
+
+```bash
+# 1. Install icecast2 (package manager or official installer)
+# 2. Configure icecast.xml (see project root for example)
+# 3. Start server
+icecast2 -c icecast.xml
+
+# 4. Verify: http://localhost:8000
+```
+
+Default config:
+- Host: `localhost`
+- Port: `8000`
+- Mount: `/nova`
+- Password: `hackme`
+
+### Extraction Pipeline
+
+```bash
+# Step 1: Ingest book
+python scripts/ingest_book.py "path/to/book.epub" --output world_name
+
+# Step 2: Run extraction (takes hours)
+python scripts/run_extraction.py world_name --model-url http://localhost:8090
+
+# Step 3: Compile world
+python scripts/compile_world.py world_name
+
+# Or use our helper script for Harry Potter
+python scripts/compile_hp_world.py
 ```
 
 ### Running Tests
@@ -174,7 +270,7 @@ Canon events have `gravity_weight` (0.0–1.0). The **Author Ghost** (hidden met
 
 ## Roadmap Status
 
-- **V1 (current)** — Basic ingestion, single-pass extraction, world graph, CLI exploration
+- **V1 (current)** — Basic ingestion ✅, extraction pipeline ✅, world graph ✅, CLI ✅, **Web UI with cover art & music ✅**, save/load system ✅
 - **V2** — Full 4-pass extraction, multi-agent system, tick-based evolution, persistent saves
 - **V3** — Narrative gravity, Author Ghost, psychological trait model, divergence tracking
-- **V4** — PDF ingestion, multi-book support, web UI, plugin API, community sharing
+- **V4** — PDF ingestion, multi-book support, web UI enhancements, plugin API, community sharing

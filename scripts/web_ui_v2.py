@@ -1,12 +1,13 @@
 """
-StoryWeaver Web UI v2 — Rich narration + Save/Load system.
+StoryWeaver Web UI v2 — Rich narration + Save/Load system + Cover Art + Music.
 
 Features:
 - Dynamic LLM-generated scenes (falls back to static text if LLM unavailable)
 - Save/Load game sessions to disk
-- Rich world context panel
+- Rich world context panel with cover art display
 - Character dialogue with memory
 - Auto-save every N actions
+- Icecast music streaming with per-world OST support
 
 Usage:
     python scripts/web_ui_v2.py
@@ -40,6 +41,9 @@ from storyweaver.memory.game_state_manager import (
     get_state_manager,
 )
 from storyweaver.narrative.llm_narrator import get_narrator, reset_narrator
+
+# ── Import Icecast streamer ───────────────────────────────────────────────
+from scripts.icecast_streamer import get_streamer, reset_streamer
 
 # ── Static fallback scenes (used when LLM is unavailable) ─────────────────
 STATIC_SCENES = {
@@ -136,6 +140,38 @@ def get_available_saves() -> List[str]:
     mgr = get_state_manager()
     saves = mgr.list_saves()
     return [s["name"] for s in saves]
+
+
+def find_cover_image(world_name: str) -> Optional[str]:
+    """Find cover image for a world. Returns file path or None."""
+    # Search in images/<world_name>/*
+    images_dir = PROJECT_ROOT / "images" / world_name
+    if images_dir.exists():
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.webp"]:
+            covers = list(images_dir.glob(ext))
+            if covers:
+                return str(covers[0].resolve())
+    # Also check images/ directory directly
+    images_root = PROJECT_ROOT / "images"
+    if images_root.exists():
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.webp"]:
+            for cover in images_root.glob(ext):
+                if world_name.lower() in cover.name.lower() or cover.stem.lower() in world_name.lower():
+                    return str(cover.resolve())
+    return None
+
+
+def find_music_directory(world_name: str) -> Optional[str]:
+    """Find music directory for a world. Returns directory path or None."""
+    # Search in audio/<world_name>/
+    audio_dir = PROJECT_ROOT / "audio" / world_name
+    if audio_dir.exists() and any(audio_dir.glob("*.mp3")):
+        return str(audio_dir.resolve())
+    # Also check music/<world_name>/
+    music_dir = PROJECT_ROOT / "music" / world_name
+    if music_dir.exists() and any(music_dir.glob("*.mp3")):
+        return str(music_dir.resolve())
+    return None
 
 
 def build_world_info_markdown() -> str:
@@ -543,13 +579,13 @@ def _static_go(location_id: str) -> str:
 
 # ── Load world ─────────────────────────────────────────────────────────────
 
-def load_world(world_name: str, use_llm: bool = True) -> Tuple[str, str, str]:
-    """Load a world and return (intro, world_info, history)."""
+def load_world(world_name: str, use_llm: bool = True) -> Tuple[str, str, str, Optional[str], str]:
+    """Load a world and return (intro, world_info, history, cover_image_path, music_status)."""
     world_dir = PROJECT_ROOT / "data" / "compiled" / world_name
     bundle_path = world_dir / "bundle.json"
 
     if not bundle_path.exists():
-        return f"❌ World '{world_name}' not found.", "", ""
+        return f"❌ World '{world_name}' not found.", "", "", None, ""
 
     session.reset()
     session.bundle = WorldBundle.load(world_dir)
@@ -565,10 +601,27 @@ def load_world(world_name: str, use_llm: bool = True) -> Tuple[str, str, str]:
         except Exception:
             pass  # Will fall back to static text
 
+    # Find cover image
+    cover_path = find_cover_image(world_name)
+
+    # Find and start music
+    music_status = ""
+    music_dir = find_music_directory(world_name)
+    if music_dir:
+        try:
+            streamer = get_streamer()
+            streamer.set_playlist_from_directory(music_dir, shuffle=True)
+            streamer.start()
+            music_status = f"🎵 Playing OST from {music_dir}"
+        except Exception as e:
+            music_status = f"🎵 Music found but couldn't stream: {e}"
+    else:
+        music_status = "🎵 No OST found for this world"
+
     intro = _get_intro(world_name)
     session.history.append({"input": "[Game started]", "output": intro})
 
-    return intro, build_world_info_markdown(), build_history_markdown()
+    return intro, build_world_info_markdown(), build_history_markdown(), cover_path, music_status
 
 
 def _get_intro(world_name: str) -> str:
@@ -596,16 +649,17 @@ def autosave_if_needed():
         mgr.autosave(save_state)
 
 
-# ── Gradio App ─────────────────────────────────────────────────────────────
+
+# --- Gradio App ----------------------------------------------------------------
 
 def create_app():
     worlds = get_available_worlds()
 
     with gr.Blocks(title="StoryWeaver v2") as app:
-        gr.Markdown("# 👑 StoryWeaver v2")
-        gr.Markdown("*Rich narration + Save/Load system*")
+        gr.Markdown("# StoryWeaver v2")
+        gr.Markdown("*Rich narration + Save/Load system + Cover Art + Music*")
 
-        # ── World selection ──
+        # --- World selection ---
         with gr.Row():
             world_dropdown = gr.Dropdown(
                 choices=worlds, value=worlds[0] if worlds else None,
@@ -615,11 +669,28 @@ def create_app():
                 value=True, label="Use LLM Narration",
                 info="Generate dynamic scenes with AI (slower but richer)"
             )
-            load_btn = gr.Button("🚀 Load World", variant="primary")
+            load_btn = gr.Button("Load World", variant="primary")
 
-        # ── Main game area ──
+        # --- Cover image and music panel ---
         with gr.Row():
-            with gr.Column(scale=3):
+            with gr.Column(scale=1):
+                cover_image = gr.Image(
+                    label="Cover Art",
+                    type="filepath",
+                    height=300,
+                    interactive=False,
+                )
+                music_status = gr.Textbox(
+                    label="Music",
+                    value="No world loaded",
+                    interactive=False,
+                )
+                with gr.Row():
+                    music_play_btn = gr.Button("Play", size="sm")
+                    music_pause_btn = gr.Button("Pause", size="sm")
+                    music_stop_btn = gr.Button("Stop", size="sm")
+
+            with gr.Column(scale=2):
                 # History
                 history_box = gr.Markdown(
                     "*Load a world to begin your adventure.*",
@@ -637,17 +708,17 @@ def create_app():
                     clear_btn = gr.Button("Clear History")
 
                 # Quick actions
-                gr.Markdown("### ⚡ Quick Actions")
+                gr.Markdown("### Quick Actions")
                 with gr.Row():
-                    look_btn = gr.Button("👁 Look")
-                    wait_btn = gr.Button("⏳ Wait")
-                    inv_btn = gr.Button("🎒 Inventory")
-                    help_btn = gr.Button("❓ Help")
+                    look_btn = gr.Button("Look")
+                    wait_btn = gr.Button("Wait")
+                    inv_btn = gr.Button("Inventory")
+                    help_btn = gr.Button("Help")
 
                 with gr.Row():
-                    save_btn = gr.Button("💾 Save Game")
-                    saves_list_btn = gr.Button("📂 List Saves")
-                    load_save_btn = gr.Button("📥 Load Save")
+                    save_btn = gr.Button("Save Game")
+                    saves_list_btn = gr.Button("List Saves")
+                    load_save_btn = gr.Button("Load Save")
 
             with gr.Column(scale=1):
                 world_info = gr.Markdown(
@@ -655,19 +726,19 @@ def create_app():
                     elem_classes=["world-info"],
                 )
 
-                gr.Markdown("### 🎭 Characters Present")
+                gr.Markdown("### Characters Present")
                 char_info = gr.Markdown("*No world loaded*")
 
-        # ── Event handlers ──
+        # --- Event handlers ---
 
         def on_load(world_name, use_llm):
-            intro, info, history = load_world(world_name, use_llm=use_llm)
-            return intro, info, history
+            intro, info, history, cover_path, music_stat = load_world(world_name, use_llm=use_llm)
+            return intro, info, history, cover_path, music_stat
 
         load_btn.click(
             on_load,
             inputs=[world_dropdown, llm_toggle],
-            outputs=[history_box, world_info, history_box],
+            outputs=[history_box, world_info, history_box, cover_image, music_status],
         )
 
         def on_command(cmd, use_llm):
@@ -689,7 +760,7 @@ def create_app():
             outputs=[history_box, world_info, history_box],
         )
 
-        # Quick actions — each button triggers its command with the LLM toggle value
+        # Quick actions
         def make_quick_action(cmd):
             def handler(use_llm):
                 if not session.bundle:
@@ -711,7 +782,7 @@ def create_app():
             mgr = get_state_manager()
             save_state = session.to_save_state()
             mgr.save(save_state)
-            return f"💾 Saved as **'{session.save_name}'**."
+            return f"Saved as '{session.save_name}'."
 
         save_btn.click(do_save, outputs=[history_box])
 
@@ -719,21 +790,19 @@ def create_app():
             mgr = get_state_manager()
             saves = mgr.list_saves()
             if not saves:
-                return "📭 No saved games."
-            lines = ["**💾 Available Saves:**", ""]
+                return "No saved Games."
+            lines = ["Available Saves:", ""]
             for s in saves:
-                lines.append(f"· **{s['name']}** — tick {s['tick']}, at {s['location'].replace('_', ' ').title()}")
+                lines.append(f"- {s['name']} - tick {s['tick']}, at {s['location'].replace('_', ' ').title()}")
             return "\n".join(lines)
 
         saves_list_btn.click(list_saves, outputs=[history_box])
 
         def do_load_save():
-            # Load most recent save for this world
             mgr = get_state_manager()
             saves = mgr.list_saves()
             if not saves:
-                return "📭 No saves found."
-            # Find save matching current world
+                return "No saves found."
             for s in saves:
                 if s.get("world") == session.world_name:
                     save = mgr.load(s["name"])
@@ -743,8 +812,8 @@ def create_app():
                         session.load_from_save(save)
                         reset_narrator()
                         get_narrator(bundle=session.bundle)
-                        return f"📂 Loaded **{s['name']}**."
-            return f"📂 Loaded most recent save: **{saves[0]['name']}**."
+                        return f"Loaded {s['name']}."
+            return f"Loaded most recent save: {saves[0]['name']}."
 
         load_save_btn.click(do_load_save, outputs=[history_box])
 
@@ -753,22 +822,56 @@ def create_app():
             outputs=[history_box, world_info, history_box],
         )
 
+        # Music control buttons
+        def music_play():
+            if not session.world_name:
+                return "No world loaded"
+            music_dir = find_music_directory(session.world_name)
+            if not music_dir:
+                return "No OST found for this world"
+            try:
+                streamer = get_streamer()
+                if streamer.is_playing:
+                    return "Already playing"
+                streamer.start()
+                return "Resumed playback"
+            except Exception as e:
+                return f"Error: {e}"
+
+        def music_pause():
+            streamer = get_streamer()
+            if streamer.is_playing:
+                streamer.stop()
+                return "Paused"
+            return "Not playing"
+
+        def music_stop():
+            streamer = get_streamer()
+            streamer.stop()
+            return "Stopped"
+
+        music_play_btn.click(music_play, outputs=[music_status])
+        music_pause_btn.click(music_pause, outputs=[music_status])
+        music_stop_btn.click(music_stop, outputs=[music_status])
+
     return app
 
 
-# ── Entry Point ────────────────────────────────────────────────────────────
+# --- Entry Point ----------------------------------------------------------------
 
 def main():
     print("\n" + "=" * 60)
-    print("  StoryWeaver Web UI v2 — Rich Narration + Save/Load")
+    print("  StoryWeaver Web UI v2 - Rich Narration + Save/Load")
     print("=" * 60)
     print("\n  Open http://localhost:7860 in your browser\n")
     print("  Features:")
-    print("    🎭  Dynamic LLM-generated scenes")
-    print("    💾  Save/Load game sessions")
-    print("    📋  Rich world context panel")
-    print("    💬  Character dialogue with memory")
-    print("    🔄  Auto-save every 10 actions")
+    print("    - Dynamic LLM-generated scenes")
+    print("    - Save/Load game sessions")
+    print("    - Rich world context panel")
+    print("    - Character dialogue with memory")
+    print("    - Auto-save every 10 actions")
+    print("    - Cover art display")
+    print("    - Icecast music streaming")
     print("\n" + "=" * 60 + "\n")
 
     app = create_app()

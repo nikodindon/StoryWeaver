@@ -38,9 +38,20 @@ Book (EPUB / TXT / PDF)
            ▼
 ┌───────────────────────┐
 │  Interaction Layer    │  ← You type. The world responds.
-│  (Zork-style CLI)     │
+│  (CLI + Web UI)       │    Rich Gradio interface with cover art & music
 └───────────────────────┘
 ```
+
+### 🎨 Rich Web UI
+
+StoryWeaver now includes a **feature-rich Gradio web interface** (`scripts/web_ui_v2.py`):
+
+- **🖼️ Cover Art Display** — Automatically detects and displays book cover images from `images/<world_name>/`
+- **🎵 Icecast Music Streaming** — Streams OST/soundtracks via Icecast from `audio/<world_name>/` using ffmpeg
+- **💾 Save/Load System** — Persistent game sessions with auto-save every 10 actions
+- **🎭 LLM-Generated Scenes** — Dynamic narration powered by your local LLM
+- **⚡ Quick Actions** — One-click commands: Look, Wait, Inventory, Help
+- **📋 Rich World Context** — Live display of locations, characters, and world state
 
 ---
 
@@ -229,10 +240,12 @@ storyweaver-engine/
 │       └── inspect.py         # World inspection / debug tools
 │
 ├── scripts/
-│   ├── ingest_book.py
-│   ├── run_extraction.py
-│   ├── compile_world.py
-│   └── run_simulation.py
+│   ├── ingest_book.py         # EPUB/TXT/PDF ingestion
+│   ├── run_extraction.py      # 4-pass LLM extraction pipeline
+│   ├── compile_world.py       # World bundle compilation
+│   ├── web_ui_v2.py           # Gradio web interface (cover + music)
+│   ├── icecast_streamer.py    # Icecast ffmpeg-based music streaming
+│   └── compile_hp_world.py    # Helper for Harry Potter world compilation
 │
 ├── notebooks/
 │   ├── extraction_tests.ipynb
@@ -478,6 +491,57 @@ storyweaver inspect alice_in_wonderland --character "The Queen of Hearts"
 
 ---
 
+## 🌐 Web UI
+
+Launch the Gradio interface:
+
+```bash
+python scripts/web_ui_v2.py
+```
+
+Then open http://localhost:7860 in your browser.
+
+### Features
+
+- **World Selection** — Choose from any compiled world in `data/compiled/`
+- **Cover Art** — Automatically loaded from `images/<world_name>/` (PNG, JPG, WEBP)
+- **Music Streaming** — Auto-detects OST in `audio/<world_name>/` and streams via Icecast
+- **LLM Narration** — Toggle AI-generated scene descriptions on/off
+- **Save/Load** — Manual saves + auto-save every 10 actions
+- **Quick Actions** — Look, Wait, Inventory, Help buttons
+
+### Icecast Setup
+
+The web UI streams music through a local Icecast server:
+
+1. **Install Icecast** — Package manager or official installer
+2. **Configure** — Edit `icecast.xml` (example in project root)
+3. **Start server** — `icecast2 -c icecast.xml`
+4. **Launch web UI** — Music auto-starts when world loads
+
+Default config:
+- Host: `localhost:8000`
+- Mount: `/nova`
+- Password: `hackme`
+
+### Asset Organization
+
+```
+images/
+└── <world_name>/
+    └── cover.png          # Book/movie cover art
+
+audio/
+└── <world_name>/
+    ├── 01 - Track 1.mp3   # OST/soundtrack files
+    ├── 02 - Track 2.mp3
+    └── ...
+```
+
+Assets are auto-discovered by world name — no manual configuration needed.
+
+---
+
 ## ⚙️ Tech Stack
 
 | Component | Technology |
@@ -494,15 +558,21 @@ storyweaver inspect alice_in_wonderland --character "The Queen of Hearts"
 
 ## 🗺️ Roadmap
 
-### V1 — Prototype *(current target)*
+### V1 — Prototype *(current)*
 
-- [ ] Book ingestion (TXT + EPUB)
-- [ ] Single-pass extraction (entities + locations)
-- [ ] Basic world graph construction
+- [x] Book ingestion (TXT + EPUB)
+- [x] Single-pass extraction (entities + locations)
+- [x] Basic world graph construction
+- [x] CLI exploration (movement + look)
+- [x] **Gradio Web UI v2** with rich features
+- [x] **Cover art display** from `images/<world_name>/`
+- [x] **Icecast music streaming** via ffmpeg
+- [x] **Save/Load system** with auto-save
+- [x] **LLM narrator** integration
+- [x] **Quick Action buttons** (Look, Wait, Inventory, Help)
 - [ ] Single character agent (protagonist)
-- [ ] CLI exploration (movement + look)
 - [ ] Narrator output generation
-- [ ] llama.cpp integration
+- [ ] llama.cpp integration (extraction pipeline)
 
 ### V2 — Multi-Agent World
 
