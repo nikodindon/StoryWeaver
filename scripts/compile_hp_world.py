@@ -4,9 +4,11 @@ Compile Harry Potter world from extraction results.
 
 Usage:
     python scripts/compile_hp_world.py
+    python scripts/compile_hp_world.py --cleaned    # Use cleaned extraction
 """
 import sys
 import json
+import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -16,19 +18,34 @@ from storyweaver.world.bundle import WorldBundle
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Compile HP world")
+    parser.add_argument("--cleaned", action="store_true",
+                        help="Use extraction_cleaned.json instead of extraction.json")
+    args = parser.parse_args()
+
     world_name = "harry_potter_1"
     processed_dir = Path("data/processed") / world_name
     output_dir = Path("data/compiled") / world_name
 
-    # Check extraction exists
-    extraction_file = processed_dir / "extraction.json"
+    # Choose extraction file
+    if args.cleaned:
+        extraction_file = processed_dir / "extraction_cleaned.json"
+        print("📂 Using CLEANED extraction file")
+    else:
+        extraction_file = processed_dir / "extraction.json"
+        print("📂 Using RAW extraction file")
+
     if not extraction_file.exists():
-        print(f"Error: No extraction.json found at {extraction_file}")
-        print("Run extraction first: python scripts/run_extraction.py harry_potter_1")
+        if args.cleaned:
+            print(f"Error: No extraction_cleaned.json found at {extraction_file}")
+            print("Run cleaning first: python scripts/clean_extraction.py harry_potter_1")
+        else:
+            print(f"Error: No extraction.json found at {extraction_file}")
+            print("Run extraction first: python scripts/run_extraction.py harry_potter_1")
         sys.exit(1)
 
     # Load extraction results
-    print(f"Loading extraction results for '{world_name}'...")
+    print(f"\nLoading extraction results for '{world_name}'...")
     with open(extraction_file) as f:
         extraction = json.load(f)
 
@@ -54,7 +71,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     bundle.save(output_dir)
 
-    print(f"\nWorld compiled successfully!")
+    print(f"\n{'✅' if not args.cleaned else '🌟'} World compiled successfully!")
     print(f"  Bundle: {output_dir / 'bundle.json'}")
     print(f"  Locations: {len(bundle.locations)}")
     print(f"  Characters: {len(bundle.characters)}")

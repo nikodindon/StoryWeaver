@@ -25,6 +25,12 @@ Book (EPUB / TXT / PDF)
            │
            ▼
 ┌───────────────────────┐
+│  Cleaning & Enrich.   │  ← Dedup, fix IDs, filter trivial objects ✨ NEW
+│  (optional)           │    Resolves name variants, merges duplicates
+└──────────┬────────────┘
+           │
+           ▼
+┌───────────────────────┐
 │  World Compiler       │  ← Transforms extraction into a structured, playable world
 │                       │    Builds graph, agents, rules, symbolic layers
 └──────────┬────────────┘
@@ -41,6 +47,31 @@ Book (EPUB / TXT / PDF)
 │  (CLI + Web UI)       │    Rich Gradio interface with cover art & music
 └───────────────────────┘
 ```
+
+### 🧹 Extraction Cleaning Pipeline ✨ NEW
+
+The LLM extraction produces raw data with known issues:
+- **Name variants**: "Harry" vs "Harry Potter" → treated as 2 characters
+- **Trivial objects**: desserts, clothing, generic items
+- **Duplicate events**: same event extracted multiple times
+- **ID mismatches**: social graph references don't match character IDs
+
+The cleaning script (`scripts/clean_extraction.py`) fixes all of this:
+
+```bash
+python scripts/clean_extraction.py harry_potter_1
+```
+
+What it does:
+| Issue | Fix |
+|---|---|
+| `"harry" + "Harry Potter"` | → Merged to `"Harry Potter"` |
+| `"you-know-who" + "Voldemort"` | → Resolved to `"Lord Voldemort"` |
+| 50 duplicate desserts | → Filtered out (trivial keyword matching) |
+| Same event ×10 | → Deduplicated (exact match on desc+participants+location) |
+| Bad relationship IDs | → Resolved to canonical character IDs |
+
+See `data/HARRY_POTTER_COMPILATION_GUIDE.md` for a full walkthrough.
 
 ### 🎨 Rich Web UI
 
@@ -242,10 +273,12 @@ storyweaver-engine/
 ├── scripts/
 │   ├── ingest_book.py         # EPUB/TXT/PDF ingestion
 │   ├── run_extraction.py      # 4-pass LLM extraction pipeline
+│   ├── clean_extraction.py    # ✨ NEW: Clean & enrich extraction (dedup, filter, resolve)
 │   ├── compile_world.py       # World bundle compilation
+│   ├── compile_hp_world.py    # HP-specific compilation (with --cleaned flag)
 │   ├── web_ui_v2.py           # Gradio web interface (cover + music)
 │   ├── icecast_streamer.py    # Icecast ffmpeg-based music streaming
-│   └── compile_hp_world.py    # Helper for Harry Potter world compilation
+│   └── monitor_extraction.ps1 # ✨ NEW: PowerShell monitoring script
 │
 ├── notebooks/
 │   ├── extraction_tests.ipynb
@@ -539,6 +572,43 @@ audio/
 ```
 
 Assets are auto-discovered by world name — no manual configuration needed.
+
+---
+
+### 🔧 Cleaning & Compilation Pipeline
+
+The raw LLM extraction has known issues (name variants, trivial objects, duplicates).
+The cleaning pipeline fixes these before compilation:
+
+```bash
+# After extraction completes:
+python scripts/clean_extraction.py world_name           # Fix duplicates, filter, enrich
+python scripts/compile_hp_world.py --cleaned            # Compile cleaned version
+# OR
+python scripts/compile_hp_world.py                      # Compile raw version
+```
+
+**What cleaning fixes:**
+
+| Issue | Example | Fix |
+|---|---|---|
+| **Name variants** | "Harry" vs "Harry Potter" | Merge to canonical name |
+| **Trivial objects** | desserts, clothing | Filter by keyword list |
+| **Duplicate events** | same event ×10 | Deduplicate by hash |
+| **Bad relationship IDs** | "harry" → "ron" | Resolve to canonical IDs |
+
+**Monitoring extraction progress:**
+
+```bash
+# PowerShell monitor (auto-checks every 10 min)
+powershell -ExecutionPolicy Bypass -File scripts/monitor_extraction.ps1
+
+# Or manually:
+dir /b data\cache\world_name\*.json | find /c /v ""   # Count cache files
+tasklist | findstr /i "python"                         # Check if running
+```
+
+See `data/HARRY_POTTER_COMPILATION_GUIDE.md` for a complete walkthrough.
 
 ---
 

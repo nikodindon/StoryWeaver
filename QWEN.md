@@ -61,6 +61,22 @@ The project is in **V1 — Prototype** phase per the roadmap. Key modules exist 
 
 ### Recently Added Features (April 2026)
 
+#### 🧹 Extraction Cleaning Pipeline ✨ NEW
+- **`scripts/clean_extraction.py`** — Fixes known LLM extraction issues
+- **Character deduplication**: "Harry" + "Harry Potter" → "Harry Potter"
+- **Name resolution**: 60+ variant mappings (e.g. "you-know-who" → "Lord Voldemort")
+- **Object filtering**: Removes trivial items (desserts, clothing, generic objects)
+- **Event deduplication**: Hash-based dedup (description + participants + location)
+- **Social graph cleaning**: Resolves character IDs in relationships
+- **Fuzzy matching**: 0.75 similarity threshold for unknown variants
+- **Output**: `extraction_cleaned.json` ready for compilation
+- **Usage**: `python scripts/clean_extraction.py <world_name>`
+
+#### 🏗️ Enhanced Compilation
+- **`scripts/compile_hp_world.py --cleaned`** flag uses cleaned extraction
+- **Comparison mode**: Can compile both raw and cleaned for comparison
+- **Metadata tracking**: Records which version was used
+
 #### 🌐 Gradio Web UI v2 (`scripts/web_ui_v2.py`)
 - **Rich interactive web interface** with Gradio framework
 - **LLM-generated scene descriptions** with fallback to static text
@@ -94,11 +110,26 @@ The project is in **V1 — Prototype** phase per the roadmap. Key modules exist 
 
 We are currently testing with **Harry Potter and the Sorcerer's Stone**:
 - **EPUB ingested** — 83 segments extracted to `data/processed/harry_potter_1/`
-- **Extraction running** — 4-pass LLM pipeline in background (PID 25300)
+- **Extraction** — 4-pass LLM pipeline running (check: `dir /b data\cache\harry_potter_1\*.json | find /c /v ""`)
+- **Cleaning script ready** — `scripts/clean_extraction.py` (run after extraction completes)
+- **Compilation ready** — `scripts/compile_hp_world.py --cleaned`
 - **Cover art ready** — `images/Harry Potter 01 Harry Potter and the Sorcerer's Stone/*.png`
 - **OST ready** — 19 John Williams tracks in `audio/Harry Potter 01 Harry Potter and the Sorcerer's Stone/`
 - **Icecast server** — running on `localhost:8000` with mount `/nova`
-- **Compilation script** — `scripts/compile_hp_world.py` ready to run post-extraction
+- **Monitoring** — `scripts/monitor_extraction.ps1` (auto-checks every 10 min)
+- **Documentation** — `data/HARRY_POTTER_COMPILATION_GUIDE.md` (complete walkthrough)
+
+#### Compilation Plan (when extraction finishes):
+```bash
+# Step 1: Clean extraction
+python scripts/clean_extraction.py harry_potter_1
+
+# Step 2: Compile cleaned world
+python scripts/compile_hp_world.py --cleaned
+
+# Step 3: Test web UI
+python scripts/web_ui_v2.py
+```
 
 ## Building and Running
 
