@@ -248,10 +248,12 @@ def process_command(user_input: str, use_llm: bool = True) -> str:
 
     # ── System commands ──
     if raw in ("quit", "exit", "q"):
-        return "The world fades around you...\n\nFarewell."
+        output = "The world fades around you...\n\nFarewell."
+        session.history.append({"input": user_input, "output": output})
+        return output
 
     if raw in ("help", "h", "?"):
-        return (
+        output = (
             "**Available Commands:**\n\n"
             "**Movement:**\n"
             "- `go <place>` — Move to a location\n"
@@ -269,29 +271,39 @@ def process_command(user_input: str, use_llm: bool = True) -> str:
             "- `saves` — List available saves\n"
             "- `quit` — Exit the game"
         )
+        session.history.append({"input": user_input, "output": output})
+        return output
 
     # ── Save/Load commands ──
     if raw.startswith("save "):
         save_name = user_input.strip()[5:].strip()
         if not save_name:
-            return "Usage: `save <name>` (e.g., `save my_adventure`)"
+            output = "Usage: `save <name>` (e.g., `save my_adventure`)"
+            session.history.append({"input": user_input, "output": output})
+            return output
         mgr = get_state_manager()
         session.save_name = save_name
         save_state = session.to_save_state()
         mgr.save(save_state)
-        return f"💾 Game saved as **'{save_name}'**."
+        output = f"💾 Game saved as **'{save_name}'**."
+        session.history.append({"input": user_input, "output": output})
+        return output
 
     if raw.startswith("load "):
         save_name = user_input.strip()[5:].strip()
         mgr = get_state_manager()
         save = mgr.load(save_name)
         if not save:
-            return f"❌ No save found named **'{save_name}'**."
+            output = f"❌ No save found named **'{save_name}'**."
+            session.history.append({"input": user_input, "output": output})
+            return output
 
         # Load world bundle
         world_dir = PROJECT_ROOT / "data" / "compiled" / save.world_name
         if not (world_dir / "bundle.json").exists():
-            return f"❌ World '{save.world_name}' not found."
+            output = f"❌ World '{save.world_name}' not found."
+            session.history.append({"input": user_input, "output": output})
+            return output
 
         session.reset()
         session.bundle = WorldBundle.load(world_dir)
@@ -301,17 +313,23 @@ def process_command(user_input: str, use_llm: bool = True) -> str:
         reset_narrator()
         get_narrator(bundle=session.bundle)
 
-        return f"📂 Loaded **'{save_name}'**.\n\n📍 Location: {session.player_location.replace('_', ' ').title()}\n⏱️ Tick: {session.tick}"
+        output = f"📂 Loaded **'{save_name}'**.\n\n📍 Location: {session.player_location.replace('_', ' ').title()}\n⏱️ Tick: {session.tick}"
+        session.history.append({"input": user_input, "output": output})
+        return output
 
     if raw == "saves":
         mgr = get_state_manager()
         saves = mgr.list_saves()
         if not saves:
-            return "📭 No saved games found."
+            output = "📭 No saved games found."
+            session.history.append({"input": user_input, "output": output})
+            return output
         lines = ["**💾 Available Saves:**", ""]
         for s in saves:
             lines.append(f"· **{s['name']}** — {s['world']} (tick {s['tick']}, {s['location'].replace('_', ' ').title()})")
-        return "\n".join(lines)
+        output = "\n".join(lines)
+        session.history.append({"input": user_input, "output": output})
+        return output
 
     # ── Look ──
     if raw in ("look", "l"):
@@ -671,24 +689,20 @@ def create_app():
             outputs=[history_box, world_info, history_box],
         )
 
-        # Quick actions
-        def quick_action(cmd, use_llm):
-            if not session.bundle:
-                return "Load a world first!", build_world_info_markdown(), build_history_markdown()
-            output = process_command(cmd, use_llm=use_llm)
-            autosave_if_needed()
-            return output, build_world_info_markdown(), build_history_markdown()
+        # Quick actions — each button triggers its command with the LLM toggle value
+        def make_quick_action(cmd):
+            def handler(use_llm):
+                if not session.bundle:
+                    return "Load a world first!", build_world_info_markdown(), build_history_markdown()
+                output = process_command(cmd, use_llm=use_llm)
+                autosave_if_needed()
+                return output, build_world_info_markdown(), build_history_markdown()
+            return handler
 
-        for btn, cmd in [
-            (look_btn, "look"),
-            (wait_btn, "wait"),
-            (inv_btn, "inventory"),
-            (help_btn, "help"),
-        ]:
-            btn.click(
-                lambda c=cmd, u=llm_toggle: quick_action(c, u.value),
-                outputs=[history_box, world_info, history_box],
-            )
+        look_btn.click(make_quick_action("look"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
+        wait_btn.click(make_quick_action("wait"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
+        inv_btn.click(make_quick_action("inventory"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
+        help_btn.click(make_quick_action("help"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
 
         # Save/Load buttons
         def do_save():
