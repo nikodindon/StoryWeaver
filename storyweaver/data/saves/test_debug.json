@@ -1,0 +1,38 @@
+{
+  "save_name": "test_debug",
+  "world_name": "emperor",
+  "player_location": "hall",
+  "tick": 3,
+  "history": [
+    {
+      "input": "[Game started]",
+      "output": "Many years ago, there was an emperor who was so excessively fond of new clothes that he spent all his money on dress.\n\nToday, two strangers have arrived in the capital, claiming to be weavers who can create the most magnificent fabric ever seen — fabric that remains invisible to anyone unfit for their office or extraordinarily simple in character.\n\nYou find yourself in the emperor's court as the story unfolds..."
+    },
+    {
+      "input": "look",
+      "output": "You are at **Emperor's Capital**.\n\nThe large town where the emperor resides and rules."
+    },
+    {
+      "input": "go hall",
+      "output": "You arrive at **hall**.\n\nA place where important decisions are made"
+    },
+    {
+      "input": "talk to emperor",
+      "output": "emperor regards you thoughtfully."
+    }
+  ],
+  "inventory": [],
+  "player_name": "Traveler",
+  "divergence_score": 0.07,
+  "visited_locations": [
+    "emperor's_capital",
+    "hall"
+  ],
+  "talked_characters": [
+    "emperor"
+  ],
+  "examined_objects": [],
+  "created_at": "2026-04-12T11:26:49.538852",
+  "updated_at": "2026-04-12T11:26:49.538860",
+  "metadata": {}
+}
