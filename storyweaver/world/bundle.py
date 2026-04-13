@@ -13,6 +13,7 @@ from .character import Character
 from .object import WorldObject
 from .event import Event
 from .rules import WorldRules
+from .chapter import Chapter, Timeline, TimelineEvent
 
 
 @dataclass
@@ -33,6 +34,10 @@ class WorldBundle:
 
     # Narrative gravity weights per canon event
     gravity_map: Dict[str, float] = field(default_factory=dict)
+
+    # Temporal progression system
+    chapters: Dict[str, Chapter] = field(default_factory=dict)       # Chapter ID -> Chapter
+    timeline: Optional[Timeline] = None                               # Ordered canonical events
 
     # Current simulation state (mutable at runtime)
     current_tick: int = 0
@@ -63,12 +68,17 @@ class WorldBundle:
             "canon_events": [e.to_dict() for e in self.canon_events],
             "gravity_map": self.gravity_map,
             "rules": self.rules.to_dict() if self.rules else None,
+            "chapters": {k: v.to_dict() for k, v in self.chapters.items()},
+            "timeline": self.timeline.to_dict() if self.timeline else None,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> WorldBundle:
         rules_data = data.get("rules")
         rules = WorldRules.from_dict(rules_data) if rules_data else None
+
+        timeline_data = data.get("timeline")
+        timeline = Timeline.from_dict(timeline_data) if timeline_data else None
 
         return cls(
             source_title=data["source_title"],
@@ -82,4 +92,6 @@ class WorldBundle:
             canon_events=[Event.from_dict(e) for e in data.get("canon_events", [])],
             gravity_map=data.get("gravity_map", {}),
             rules=rules,
+            chapters={k: Chapter.from_dict(v) for k, v in data.get("chapters", {}).items()},
+            timeline=timeline,
         )
