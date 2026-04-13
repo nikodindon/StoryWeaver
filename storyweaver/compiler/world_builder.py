@@ -130,11 +130,12 @@ class WorldBuilder:
     def _build_events(self, raw_events: List[Dict]) -> List[Event]:
         events = []
         for i, e in enumerate(raw_events):
+            loc = e.get("location") or ""
             events.append(Event(
                 id=f"canon_{i:04d}",
                 description=e.get("description", ""),
                 participants=e.get("participants", []),
-                location_id=e.get("location", "").lower().replace(" ", "_") or None,
+                location_id=loc.lower().replace(" ", "_") or None,
                 is_canon=True,
                 gravity=0.5,
             ))

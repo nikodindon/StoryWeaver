@@ -16,9 +16,12 @@ Usage:
 from __future__ import annotations
 import sys
 import io
+import os
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
+from loguru import logger
 
 # Fix Windows console encoding for emojis
 if sys.platform == "win32":
@@ -144,16 +147,46 @@ def get_available_saves() -> List[str]:
 
 def find_cover_image(world_name: str) -> Optional[str]:
     """Find cover image for a world. Returns file path or None."""
-    # Search in images/<world_name>/*
+    import os
+    logger.info(f"find_cover_image called for world_name='{world_name}'")
+    logger.info(f"PROJECT_ROOT={PROJECT_ROOT}")
+
+    # Direct match: images/<world_name>/*
     images_dir = PROJECT_ROOT / "images" / world_name
+    logger.info(f"Direct match path: {images_dir}, exists={images_dir.exists()}")
     if images_dir.exists():
         for ext in ["*.png", "*.jpg", "*.jpeg", "*.webp"]:
             covers = list(images_dir.glob(ext))
             if covers:
+                logger.info(f"Found cover via direct match: {covers[0]}")
                 return str(covers[0].resolve())
-    # Also check images/ directory directly
+
+    # Fuzzy match: search all image directories for partial name matches
     images_root = PROJECT_ROOT / "images"
+    logger.info(f"images_root exists={images_root.exists()}")
     if images_root.exists():
+        # List what's in images/
+        try:
+            contents = os.listdir(str(images_root))
+            logger.info(f"images/ contents: {contents}")
+        except Exception as e:
+            logger.error(f"Cannot list images/: {e}")
+
+        world_parts = world_name.lower().replace("_", " ").split()
+        logger.info(f"world_parts: {world_parts}")
+        for d in images_root.iterdir():
+            if d.is_dir():
+                dir_name_lower = d.name.lower()
+                logger.info(f"Checking dir '{d.name}' lower='{dir_name_lower}'")
+                matches = [part for part in world_parts if len(part) > 2 and part in dir_name_lower]
+                logger.info(f"  matches: {matches}")
+                if any(part in dir_name_lower for part in world_parts if len(part) > 2):
+                    for ext in ["*.png", "*.jpg", "*.jpeg", "*.webp"]:
+                        covers = list(d.glob(ext))
+                        if covers:
+                            logger.info(f"Found cover via fuzzy match: {covers[0]}")
+                            return str(covers[0].resolve())
+        # Also check images/ directory directly
         for ext in ["*.png", "*.jpg", "*.jpeg", "*.webp"]:
             for cover in images_root.glob(ext):
                 if world_name.lower() in cover.name.lower() or cover.stem.lower() in world_name.lower():
@@ -163,14 +196,39 @@ def find_cover_image(world_name: str) -> Optional[str]:
 
 def find_music_directory(world_name: str) -> Optional[str]:
     """Find music directory for a world. Returns directory path or None."""
-    # Search in audio/<world_name>/
+    logger.info(f"find_music_directory called for world_name='{world_name}'")
+    # Direct match: audio/<world_name>/
     audio_dir = PROJECT_ROOT / "audio" / world_name
+    logger.info(f"Direct match path: {audio_dir}, exists={audio_dir.exists()}")
     if audio_dir.exists() and any(audio_dir.glob("*.mp3")):
+        logger.info(f"Found music via direct match: {audio_dir.resolve()}")
         return str(audio_dir.resolve())
+
+    # Fuzzy match: search all audio directories for partial name matches
+    audio_root = PROJECT_ROOT / "audio"
+    logger.info(f"audio_root exists={audio_root.exists()}")
+    if audio_root.exists():
+        try:
+            contents = os.listdir(str(audio_root))
+            logger.info(f"audio/ contents: {contents}")
+        except Exception as e:
+            logger.error(f"Cannot list audio/: {e}")
+        world_parts = world_name.lower().replace("_", " ").split()
+        logger.info(f"world_parts: {world_parts}")
+        for d in audio_root.iterdir():
+            if d.is_dir():
+                dir_name_lower = d.name.lower()
+                logger.info(f"Checking audio dir '{d.name}' lower='{dir_name_lower}'")
+                if any(part in dir_name_lower for part in world_parts if len(part) > 2):
+                    if any(d.glob("*.mp3")):
+                        logger.info(f"Found music via fuzzy match: {d.resolve()}")
+                        return str(d.resolve())
+
     # Also check music/<world_name>/
     music_dir = PROJECT_ROOT / "music" / world_name
     if music_dir.exists() and any(music_dir.glob("*.mp3")):
         return str(music_dir.resolve())
+    logger.warning("No music directory found")
     return None
 
 
@@ -261,14 +319,38 @@ def get_location_id_from_name(name: str) -> str:
 def get_char_id(name: str) -> str:
     if not session.bundle:
         return ""
-    name_lower = name.lower()
+    name_lower = name.lower().strip()
+
+    # Exact ID match
     for cid in session.bundle.characters:
-        if cid == name_lower or name_lower in cid or cid in name_lower:
+        if cid.lower() == name_lower:
             return cid
-    # By character name
+
+    # Character name match (case-insensitive, exact first)
     for cid, char in session.bundle.characters.items():
-        if name_lower in char.name.lower() or char.name.lower() in name_lower:
+        char_name_lower = char.name.lower()
+        if name_lower == char_name_lower:
             return cid
+
+    # Partial ID/name match (require min 3 chars to avoid false positives like "he" in "hermione")
+    for cid, char in session.bundle.characters.items():
+        char_name_lower = char.name.lower()
+        if len(name_lower) >= 3 and name_lower in cid.lower():
+            return cid
+        if len(char_name_lower) >= 3 and name_lower in char_name_lower:
+            return cid
+        if len(cid.lower()) >= 3 and cid.lower() in name_lower:
+            return cid
+        if len(char_name_lower) >= 3 and char_name_lower in name_lower:
+            return cid
+
+    # Fuzzy: check word overlap (min 3-char words only)
+    for cid, char in session.bundle.characters.items():
+        name_words = {w for w in name_lower.split() if len(w) >= 3}
+        char_words = {w for w in char.name.lower().split() if len(w) >= 3}
+        if name_words & char_words:
+            return cid
+
     return ""
 
 
@@ -579,8 +661,8 @@ def _static_go(location_id: str) -> str:
 
 # ── Load world ─────────────────────────────────────────────────────────────
 
-def load_world(world_name: str, use_llm: bool = True) -> Tuple[str, str, str, Optional[str], str]:
-    """Load a world and return (intro, world_info, history, cover_image_path, music_status)."""
+def load_world(world_name: str, use_llm: bool = True) -> Tuple[str, str, str, Optional[str], str, str]:
+    """Load a world and return (intro, world_info, history, cover_image_path, music_status, music_player_html)."""
     world_dir = PROJECT_ROOT / "data" / "compiled" / world_name
     bundle_path = world_dir / "bundle.json"
 
@@ -606,22 +688,47 @@ def load_world(world_name: str, use_llm: bool = True) -> Tuple[str, str, str, Op
 
     # Find and start music
     music_status = ""
+    music_player_html = ""
     music_dir = find_music_directory(world_name)
+    logger.info(f"Music dir: {music_dir}")
     if music_dir:
         try:
+            reset_streamer()
             streamer = get_streamer()
+            logger.info(f"Streamer mount: {streamer.mount}, password: {streamer.password}")
+            logger.info(f"Setting playlist from: {music_dir}")
             streamer.set_playlist_from_directory(music_dir, shuffle=True)
-            streamer.start()
-            music_status = f"🎵 Playing OST from {music_dir}"
+            logger.info(f"Playlist has {len(streamer._playlist)} tracks")
+            started = streamer.start()
+            logger.info(f"Stream started: {started}, is_playing: {streamer.is_playing}")
+            if started:
+                music_status = f"🎵 Playing OST on mount {streamer.mount}"
+                stream_url = f"http://{streamer.host}:{streamer.port}{streamer.mount}"
+                # Wait a moment for Icecast mount to be ready
+                time.sleep(1)
+                music_player_html = (
+                    f'<div style="padding:8px;background:#1a1a2e;border-radius:8px;margin-top:8px;">'
+                    f'<audio controls style="width:100%;height:36px;" preload="none">'
+                    f'<source src="{stream_url}" type="audio/mpeg">'
+                    f'Your browser does not support audio.'
+                    f'</audio>'
+                    f'<p style="font-size:10px;color:#aaa;margin:4px 0 0;text-align:center;">'
+                    f'Click play to listen | Stream: {stream_url}'
+                    f'</p></div>'
+                )
+            else:
+                music_status = "⚠️ Stream failed to start"
         except Exception as e:
-            music_status = f"🎵 Music found but couldn't stream: {e}"
+            import traceback
+            logger.error(f"Music error: {e}\n{traceback.format_exc()}")
+            music_status = f"🎵 Music error: {e}"
     else:
         music_status = "🎵 No OST found for this world"
 
     intro = _get_intro(world_name)
     session.history.append({"input": "[Game started]", "output": intro})
 
-    return intro, build_world_info_markdown(), build_history_markdown(), cover_path, music_status
+    return intro, build_world_info_markdown(), build_history_markdown(), cover_path, music_status, music_player_html
 
 
 def _get_intro(world_name: str) -> str:
@@ -685,10 +792,15 @@ def create_app():
                     value="No world loaded",
                     interactive=False,
                 )
-                with gr.Row():
-                    music_play_btn = gr.Button("Play", size="sm")
-                    music_pause_btn = gr.Button("Pause", size="sm")
-                    music_stop_btn = gr.Button("Stop", size="sm")
+                # HTML5 Audio Player for Icecast stream with inline JS
+                music_player = gr.HTML(
+                    value="""
+                    <div style="padding: 10px; text-align: center;">
+                        <p style="color: #888; font-size: 14px;">Load a world to begin — music will start automatically</p>
+                    </div>
+                    """,
+                    label="Music Player",
+                )
 
             with gr.Column(scale=2):
                 # History
@@ -732,48 +844,48 @@ def create_app():
         # --- Event handlers ---
 
         def on_load(world_name, use_llm):
-            intro, info, history, cover_path, music_stat = load_world(world_name, use_llm=use_llm)
-            return intro, info, history, cover_path, music_stat
+            intro, info, history, cover_path, music_stat, player_html = load_world(world_name, use_llm=use_llm)
+            return intro, info, history, cover_path, music_stat, player_html
 
         load_btn.click(
             on_load,
             inputs=[world_dropdown, llm_toggle],
-            outputs=[history_box, world_info, history_box, cover_image, music_status],
+            outputs=[history_box, world_info, history_box, cover_image, music_status, music_player],
         )
 
         def on_command(cmd, use_llm):
             if not session.bundle:
-                return "Load a world first!", build_world_info_markdown(), build_history_markdown()
+                return "Load a world first!", build_world_info_markdown(), build_history_markdown(), ""
 
             output = process_command(cmd, use_llm=use_llm)
             autosave_if_needed()
-            return output, build_world_info_markdown(), build_history_markdown()
+            return output, build_world_info_markdown(), build_history_markdown(), ""
 
         send_btn.click(
             on_command,
             inputs=[input_box, llm_toggle],
-            outputs=[history_box, world_info, history_box],
+            outputs=[history_box, world_info, history_box, input_box],
         )
         input_box.submit(
             on_command,
             inputs=[input_box, llm_toggle],
-            outputs=[history_box, world_info, history_box],
+            outputs=[history_box, world_info, history_box, input_box],
         )
 
         # Quick actions
         def make_quick_action(cmd):
             def handler(use_llm):
                 if not session.bundle:
-                    return "Load a world first!", build_world_info_markdown(), build_history_markdown()
+                    return "Load a world first!", build_world_info_markdown(), build_history_markdown(), ""
                 output = process_command(cmd, use_llm=use_llm)
                 autosave_if_needed()
-                return output, build_world_info_markdown(), build_history_markdown()
+                return output, build_world_info_markdown(), build_history_markdown(), ""
             return handler
 
-        look_btn.click(make_quick_action("look"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
-        wait_btn.click(make_quick_action("wait"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
-        inv_btn.click(make_quick_action("inventory"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
-        help_btn.click(make_quick_action("help"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box])
+        look_btn.click(make_quick_action("look"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box, input_box])
+        wait_btn.click(make_quick_action("wait"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box, input_box])
+        inv_btn.click(make_quick_action("inventory"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box, input_box])
+        help_btn.click(make_quick_action("help"), inputs=[llm_toggle], outputs=[history_box, world_info, history_box, input_box])
 
         # Save/Load buttons
         def do_save():
@@ -849,10 +961,6 @@ def create_app():
             streamer = get_streamer()
             streamer.stop()
             return "Stopped"
-
-        music_play_btn.click(music_play, outputs=[music_status])
-        music_pause_btn.click(music_pause, outputs=[music_status])
-        music_stop_btn.click(music_stop, outputs=[music_status])
 
     return app
 

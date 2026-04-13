@@ -1,16 +1,18 @@
 """
 StoryWeaver — Icecast Music Streamer
 
-Streams a playlist of MP3 files to an Icecast server via ffmpeg.
-Supports start/stop control and playlist management.
+Uses ffmpeg concat demuxer to stream all tracks as ONE continuous file.
+No reconnections between tracks — seamless playback in the browser.
 
 Usage:
-    python scripts/icecast_streamer.py --mount /nova --host localhost --port 8000 --password hackme --playlist "path/to/mp3s/"
+    python scripts/icecast_streamer.py --playlist "path/to/mp3s/"
 """
 from __future__ import annotations
 import subprocess
+import tempfile
 import threading
 import time
+import os
 import random
 from pathlib import Path
 from typing import List, Optional
@@ -18,7 +20,7 @@ from loguru import logger
 
 
 class IcecastStreamer:
-    """Manages ffmpeg streaming of a music playlist to Icecast."""
+    """Manages ffmpeg streaming to Icecast using concat demuxer for seamless playback."""
 
     def __init__(
         self,
@@ -31,14 +33,15 @@ class IcecastStreamer:
         self.port = port
         self.mount = mount
         self.password = password
+        self.icecast_url = f"icecast://source:{self.password}@{self.host}:{self.port}{self.mount}"
+
         self._process: Optional[subprocess.Popen] = None
-        self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._playlist: List[Path] = []
         self._is_playing = False
+        self._concat_file: Optional[str] = None
 
     def set_playlist(self, mp3_paths: List[str | Path]) -> None:
-        """Set the playlist from a list of MP3 file paths."""
         self._playlist = [Path(p) for p in mp3_paths if Path(p).exists()]
         if not self._playlist:
             logger.warning("No valid MP3 files found in playlist")
@@ -46,7 +49,6 @@ class IcecastStreamer:
             logger.info(f"Playlist set with {len(self._playlist)} tracks")
 
     def set_playlist_from_directory(self, directory: str | Path, shuffle: bool = True) -> None:
-        """Set playlist from all MP3 files in a directory."""
         dir_path = Path(directory)
         if not dir_path.exists():
             logger.warning(f"Directory not found: {directory}")
@@ -56,12 +58,34 @@ class IcecastStreamer:
             random.shuffle(mp3_files)
         self.set_playlist(mp3_files)
 
+    def _create_concat_file(self) -> str:
+        """Create a concat demuxer file. Uses short paths to avoid issues."""
+        # Write to a temp file in the same directory as the music (avoids path issues)
+        if self._playlist:
+            base_dir = self._playlist[0].parent
+        else:
+            base_dir = Path(tempfile.gettempdir())
+
+        concat_path = base_dir / "_sw_playlist.txt"
+        
+        with open(concat_path, 'w', encoding='utf-8') as f:
+            for track in self._playlist:
+                # Use relative paths when possible, absolute otherwise
+                try:
+                    rel = track.relative_to(base_dir)
+                    f.write(f"file '{rel.as_posix()}'\n")
+                except ValueError:
+                    # Different drive, use absolute with forward slashes
+                    f.write(f"file '{track.as_posix()}'\n")
+        
+        self._concat_file = str(concat_path)
+        logger.info(f"Concat file created: {self._concat_file}")
+        return self._concat_file
+
     def start(self) -> bool:
-        """Start streaming to Icecast. Returns True if successful."""
         if self._is_playing:
             logger.warning("Already streaming")
             return True
-
         if not self._playlist:
             logger.error("No playlist set")
             return False
@@ -70,21 +94,32 @@ class IcecastStreamer:
         self._thread = threading.Thread(target=self._stream_loop, daemon=True)
         self._thread.start()
         self._is_playing = True
-        logger.info(f"Streaming started to icecast://{self.host}:{self.port}{self.mount}")
+        logger.info(f"Streaming started to {self.icecast_url}")
         return True
 
     def stop(self) -> None:
-        """Stop streaming."""
         if not self._is_playing:
             return
         self._stop_event.set()
         if self._process:
-            self._process.terminate()
             try:
-                self._process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
+                self._process.terminate()
+            except Exception:
+                pass
+            try:
+                self._process.wait(timeout=3)
+            except Exception:
+                try:
+                    self._process.kill()
+                except Exception:
+                    pass
         self._is_playing = False
+        # Cleanup concat file
+        if self._concat_file and os.path.exists(self._concat_file):
+            try:
+                os.unlink(self._concat_file)
+            except Exception:
+                pass
         logger.info("Streaming stopped")
 
     @property
@@ -92,52 +127,45 @@ class IcecastStreamer:
         return self._is_playing
 
     def _stream_loop(self) -> None:
-        """Main streaming loop: plays tracks sequentially."""
-        while not self._stop_event.is_set():
-            for track_path in self._playlist:
-                if self._stop_event.is_set():
-                    break
-                if not track_path.exists():
-                    logger.warning(f"Track not found: {track_path}")
-                    continue
-                logger.info(f"Playing: {track_path.name}")
-                self._play_file(track_path)
-
-    def _play_file(self, file_path: Path) -> None:
-        """Stream a single file to Icecast via ffmpeg."""
-        icecast_url = f"icecast://source:{self.password}@{self.host}:{self.port}{self.mount}"
+        """Stream ALL tracks as ONE continuous file via concat demuxer."""
+        concat_file = self._create_concat_file()
 
         cmd = [
-            "ffmpeg",
-            "-re",                          # Read input at native frame rate
-            "-i", str(file_path),           # Input file
-            "-content_type", "audio/mpeg",  # MIME type
-            "-codec", "copy",               # No re-encoding, just copy
-            "-ice_public", "0",             # Not a public stream
-            "-ice_name", "StoryWeaver",     # Stream name
-            "-ice_description", "StoryWeaver Game Music",  # Description
-            "-f", "mp3",                    # Output format
-            icecast_url,
+            "ffmpeg", "-re",
+            "-f", "concat", "-safe", "0",
+            "-i", concat_file,
+            "-vn", "-map", "0:a",
+            "-codec:a", "libmp3lame", "-b:a", "192k",
+            "-ar", "44100", "-ac", "2",
+            "-f", "mp3",
+            "-content_type", "audio/mpeg",
+            "-ice_name", "StoryWeaver",
+            "-ice_description", "StoryWeaver Game Music",
+            self.icecast_url,
         ]
 
+        logger.info(f"Starting ffmpeg with {len(self._playlist)} tracks (concat mode)...")
         try:
             self._process = subprocess.Popen(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
-            # Wait for process to finish (track ends) or stop signal
+            # Wait for ALL tracks to finish or stop signal
             while self._process.poll() is None and not self._stop_event.is_set():
-                time.sleep(0.5)
+                time.sleep(1)
 
-            if self._stop_event.is_set():
+            if self._stop_event.is_set() and self._process.poll() is None:
                 self._process.terminate()
                 try:
                     self._process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
+                except Exception:
                     self._process.kill()
+            elif self._process.returncode != 0:
+                logger.warning(f"ffmpeg exited with code {self._process.returncode}")
+
         except FileNotFoundError:
-            logger.error("ffmpeg not found. Is ffmpeg installed?")
+            logger.error("ffmpeg not found")
             self._stop_event.set()
         except Exception as e:
             logger.error(f"Streaming error: {e}")
@@ -145,49 +173,37 @@ class IcecastStreamer:
             self._process = None
 
 
-# ── Global singleton for use from web UI ──────────────────────────────────
+# ── Global singleton ──────────────────────────────────────────────────────
 _streamer: Optional[IcecastStreamer] = None
 
-
 def get_streamer() -> IcecastStreamer:
-    """Get or create the global IcecastStreamer instance."""
     global _streamer
     if _streamer is None:
         _streamer = IcecastStreamer()
     return _streamer
 
-
 def reset_streamer() -> None:
-    """Reset the global streamer instance."""
     global _streamer
     if _streamer is not None:
         _streamer.stop()
     _streamer = None
 
 
-# ── CLI entry point ──────────────────────────────────────────────────────
-
+# ── CLI ───────────────────────────────────────────────────────────────────
 def main():
     import argparse
-
     parser = argparse.ArgumentParser(description="Stream music to Icecast")
-    parser.add_argument("--host", default="localhost", help="Icecast host")
-    parser.add_argument("--port", type=int, default=8000, help="Icecast port")
-    parser.add_argument("--mount", default="/nova", help="Icecast mount point")
-    parser.add_argument("--password", default="hackme", help="Icecast source password")
-    parser.add_argument("--playlist", type=str, help="Directory containing MP3 files")
-    parser.add_argument("--files", nargs="*", help="Individual MP3 files to stream")
-    parser.add_argument("--shuffle", action="store_true", default=True, help="Shuffle playlist")
-    parser.add_argument("--no-shuffle", dest="shuffle", action="store_false", help="Don't shuffle")
-
+    parser.add_argument("--host", default="localhost")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--mount", default="/nova")
+    parser.add_argument("--password", default="hackme")
+    parser.add_argument("--playlist", type=str)
+    parser.add_argument("--files", nargs="*")
+    parser.add_argument("--shuffle", action="store_true", default=True)
+    parser.add_argument("--no-shuffle", dest="shuffle", action="store_false")
     args = parser.parse_args()
 
-    streamer = IcecastStreamer(
-        host=args.host,
-        port=args.port,
-        mount=args.mount,
-        password=args.password,
-    )
+    streamer = IcecastStreamer(host=args.host, port=args.port, mount=args.mount, password=args.password)
 
     if args.playlist:
         streamer.set_playlist_from_directory(args.playlist, shuffle=args.shuffle)
@@ -198,7 +214,7 @@ def main():
         return
 
     print(f"\n{'=' * 50}")
-    print(f"  StoryWeaver Icecast Streamer")
+    print(f"  StoryWeaver Icecast Streamer (Concat Mode)")
     print(f"{'=' * 50}")
     print(f"  Stream URL: http://{args.host}:{args.port}{args.mount}")
     print(f"  Tracks: {len(streamer._playlist)}")
@@ -211,7 +227,6 @@ def main():
     except KeyboardInterrupt:
         print("\nStopping stream...")
         streamer.stop()
-
 
 if __name__ == "__main__":
     main()

@@ -52,7 +52,7 @@ def run_play(world_name: str, session: str = None, mode: str = "canon") -> None:
         models_config = yaml.safe_load(f)
 
     # Initialize LLM client for narration
-    base_url = models_config.get("llm", {}).get("base_url", "http://localhost:8090/v1")
+    base_url = models_config.get("llm", {}).get("base_url", "http://localhost:8080/v1")
     try:
         llm = LlamaCppClient(base_url=base_url)
         # Test connection

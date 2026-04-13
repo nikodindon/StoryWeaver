@@ -2,7 +2,7 @@
 # All models assumed to be served via llama.cpp --server (OpenAI-compatible API)
 
 llm:
-  base_url: "http://localhost:8090/v1"
+  base_url: "http://localhost:8080/v1"
   api_key: "not-needed"       # llama.cpp doesn't require an API key
 
   # Model assignment per task
@@ -38,5 +38,5 @@ llm:
 
 embeddings:
   model: "nomic-embed-text"     # Run via llama.cpp or sentence-transformers
-  base_url: "http://localhost:8090/v1"
+  base_url: "http://localhost:8080/v1"
   dimension: 768

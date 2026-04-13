@@ -73,7 +73,7 @@ def run_compile(book_path: str, model: str, output_name: Optional[str] = None) -
         # Step 2: Extract
         progress.update(task, description="[cyan]Running extraction... (this may take a while)")
         logger.info("Starting extraction pipeline")
-        base_url = models_config.get("llm", {}).get("base_url", "http://localhost:8090/v1")
+        base_url = models_config.get("llm", {}).get("base_url", "http://localhost:8080/v1")
         model_name = models_config.get("llm", {}).get("models", {}).get("extraction_heavy", model)
         llm = LlamaCppClient(base_url=base_url, model=model_name)
         pipeline = ExtractionPipeline(llm, cache_dir, default_config.get("extraction", {}))

@@ -25,7 +25,7 @@ class LLMNarrator:
         llm: Optional[LlamaCppClient] = None,
         world_bundle=None,
         model: str = "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-        base_url: str = "http://localhost:8090/v1",
+        base_url: str = "http://localhost:8080/v1",
     ):
         self.llm = llm or LlamaCppClient(base_url=base_url, model=model)
         self.bundle = world_bundle
@@ -209,18 +209,18 @@ class LLMNarrator:
             Character's response with narration
         """
         system = (
-            f"You are {character_name}. {character_description or ''} "
-            f"Respond in character — with personality, motivations, and voice. "
-            f"You are currently at {location_name}. "
-            f"Write your response as a mix of dialogue and action descriptions. "
-            f"Use quotes for speech, and describe gestures and expressions. "
+            f"You are {character_name} in the world of the story. {character_description or ''} "
+            f"A traveler has approached you at {location_name}. "
+            f"Respond directly to the traveler — speak to them, address them. "
+            f"Use first-person perspective. Write dialogue in quotes and describe your gestures. "
+            f"Stay true to your personality, motivations, and voice. "
             f"Keep it under 150 words."
         )
 
-        user = f"Respond as {character_name}. "
+        user = f"The traveler looks at you and seems to want to talk. "
         if conversation_history:
-            user += f"Recent conversation:\n{'\n'.join(conversation_history[-4:])}\n\n"
-        user += f"What do you say?"
+            user += f"You've been speaking with them recently:\n{'\n'.join(conversation_history[-4:])}\n\n"
+        user += f"Respond as {character_name}, addressing the traveler directly. What do you say to them?"
 
         try:
             result = self.llm.complete(
@@ -242,7 +242,7 @@ def get_narrator(
     llm=None,
     bundle=None,
     model: str = "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-    base_url: str = "http://localhost:8090/v1",
+    base_url: str = "http://localhost:8080/v1",
 ) -> LLMNarrator:
     """Get or create the global narrator singleton."""
     global _narrator
