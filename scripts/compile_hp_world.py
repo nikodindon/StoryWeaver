@@ -46,11 +46,19 @@ def main():
 
     # Load extraction results
     print(f"\nLoading extraction results for '{world_name}'...")
-    with open(extraction_file) as f:
+    with open(extraction_file, encoding="utf-8") as f:
         extraction = json.load(f)
 
+    # Load segments (for chapter generation)
+    segments = None
+    segments_file = processed_dir / "segments.json"
+    if segments_file.exists():
+        with open(segments_file) as f:
+            segments = json.load(f)
+        print(f"📂 Loaded {len(segments)} segments for chapter generation")
+
     # Load book metadata
-    with open(processed_dir / "meta.json") as f:
+    with open(processed_dir / "meta.json", encoding="utf-8") as f:
         meta = json.load(f)
 
     book_meta = {"title": meta.get("title", world_name), "author": meta.get("author", "Unknown")}
@@ -64,7 +72,10 @@ def main():
 
     # Build world
     print("Building world...")
-    bundle, agents = WorldBuilder.build(extraction, book_meta)
+    # WorldBuilder needs an LLM client but doesn't actually call it during compilation
+    # Pass None — the agents will get no LLM client but the bundle builds fine
+    builder = WorldBuilder(llm_client=None, config={"mode": "compile"})
+    bundle, agents = builder.build(extraction, book_meta, segments=segments)
 
     # Save
     print(f"Saving to {output_dir}...")
@@ -77,6 +88,7 @@ def main():
     print(f"  Characters: {len(bundle.characters)}")
     print(f"  Objects: {len(bundle.objects)}")
     print(f"  Canon Events: {len(bundle.canon_events)}")
+    print(f"  Chapters: {len(bundle.chapters)}")
     print(f"\nPlay with: storyweaver play {world_name}")
     print(f"Or via web UI: python scripts/web_ui_v2.py")
 

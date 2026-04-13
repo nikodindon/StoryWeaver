@@ -29,16 +29,27 @@ def main():
     with open(processed_dir / "meta.json") as f:
         meta = json.load(f)
 
+    # Load segments for chapter generation
+    segments = None
+    segments_file = processed_dir / "segments.json"
+    if segments_file.exists():
+        with open(segments_file) as f:
+            segments = json.load(f)
+        print(f"Loaded {len(segments)} segments for chapter generation")
+
     print(f"Compiling world: {meta['title']}")
 
     llm = LlamaCppClient(base_url=args.model_url)
     builder = WorldBuilder(llm_client=llm, config={})
-    world = builder.build(extraction, meta)
+    bundle, agents = builder.build(extraction, meta, segments=segments)
 
     output_dir = Path("data/compiled") / args.world_name
-    world.save(output_dir)
+    bundle.save(output_dir)
 
     print(f"World compiled and saved to {output_dir}/")
+    print(f"  Locations: {len(bundle.locations)}")
+    print(f"  Characters: {len(bundle.characters)}")
+    print(f"  Chapters: {len(bundle.chapters)}")
     print(f"Play with: storyweaver play {args.world_name}")
 
 

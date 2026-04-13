@@ -7,7 +7,7 @@ This is the "compiler" step: raw extraction data → executable world model.
 from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 import json
 
 from loguru import logger
@@ -18,10 +18,12 @@ from ..world.location import Location
 from ..world.object import WorldObject
 from ..world.event import Event
 from ..world.rules import WorldRules
+from ..world.chapter import Chapter, Timeline, TimelineEvent
 from ..models.llm_client import LLMClient
 from .graph_builder import GraphBuilder
 from .agent_builder import AgentBuilder
 from .rules_builder import RulesBuilder
+from .chapter_builder import ChapterBuilder
 
 
 class WorldBuilder:
@@ -31,11 +33,12 @@ class WorldBuilder:
         self.llm = llm_client
         self.config = config
 
-    def build(self, extraction: Dict, book_meta: Dict) -> WorldBundle:
+    def build(self, extraction: Dict, book_meta: Dict, segments: Optional[List[Dict]] = None) -> tuple:
         """
         Full compilation pipeline.
         extraction: result from ExtractionPipeline.run()
         book_meta: {"title": str, "author": str}
+        segments: optional list of {"id": str, "chapter": int, "text": str} for chapter generation
         """
         logger.info(f"Compiling world for: {book_meta['title']}")
 
@@ -69,7 +72,19 @@ class WorldBuilder:
         # 6. Build gravity map
         gravity_map = symbolism.get("gravity_map", {})
 
-        # 7. Construct bundle
+        # 7. Build chapters from segments (temporal progression)
+        chapters = {}
+        timeline = None
+        if segments:
+            logger.info(f"  Building chapters from {len(segments)} segments...")
+            chapter_builder = ChapterBuilder()
+            chapters = chapter_builder.build_chapters(segments, extraction)
+            logger.info(f"  Built {len(chapters)} chapters")
+
+            # Build timeline from chapters and events
+            timeline = self._build_timeline(chapters, canon_events)
+
+        # 8. Construct bundle
         bundle = WorldBundle(
             source_title=book_meta["title"],
             source_author=book_meta.get("author", "Unknown"),
@@ -80,14 +95,16 @@ class WorldBuilder:
             canon_events=canon_events,
             rules=rules,
             gravity_map=gravity_map,
+            chapters=chapters,
+            timeline=timeline,
         )
 
-        # 8. Build agents (returned for use by the simulation engine)
+        # 9. Build agents (returned for use by the simulation engine)
         logger.info("  Building character agents...")
         agent_builder = AgentBuilder(self.llm)
         agents = agent_builder.build_all(characters, psychology, bundle)
 
-        logger.info(f"World compiled: {len(locations)} locations, {len(characters)} characters, {len(agents)} agents")
+        logger.info(f"World compiled: {len(locations)} locations, {len(characters)} characters, {len(agents)} agents, {len(chapters)} chapters")
         return bundle, agents
 
     def _build_characters(self, raw_chars: List[Dict], social_graph: List[Dict]) -> Dict[str, Character]:
@@ -140,3 +157,42 @@ class WorldBuilder:
                 gravity=0.5,
             ))
         return events
+
+    def _build_timeline(self, chapters: Dict[str, Chapter], canon_events: List[Event]) -> Timeline:
+        """
+        Build a Timeline from chapters and canon events.
+        Each canon event is assigned to a chapter based on participant overlap.
+        """
+        from ..world.chapter import TimelineEvent
+
+        timeline_events = []
+        for i, event in enumerate(canon_events):
+            # Find which chapter this event belongs to based on participants
+            event_participants = [p.lower().replace(" ", "_") for p in event.participants]
+            
+            target_chapter = None
+            for ch_id, chapter in sorted(chapters.items(), key=lambda x: x[1].index):
+                # Check if any event participant is in this chapter's characters
+                for p in event_participants:
+                    if p in chapter.characters:
+                        target_chapter = ch_id
+                        break
+                if target_chapter:
+                    break
+            
+            # Fallback: assign to first chapter
+            if not target_chapter and chapters:
+                target_chapter = min(chapters.keys(), key=lambda k: chapters[k].index)
+            
+            if target_chapter:
+                chapter = chapters[target_chapter]
+                timeline_events.append(TimelineEvent(
+                    event_id=event.id,
+                    chapter_id=target_chapter,
+                    order=len([e for e in timeline_events if e.chapter_id == target_chapter]),
+                    description=event.description,
+                    participants=event.participants,
+                    location_id=event.location_id,
+                ))
+
+        return Timeline(events=timeline_events)
