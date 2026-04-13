@@ -45,6 +45,23 @@ Thumbs.db
 htmlcov/
 .coverage
 
+# Temp dev/test scripts (not part of main pipeline)
+check_*.py
+find_*.py
+inspect_*.py
+test_debug.py
+test_game_commands.py
+test_web_api.py
+test_*.py
+scripts/test_*.py
+
+# Large media files (EPUBs, PDFs, images, audio)
+*.epub
+*.pdf
+audio/
+images/
+capture.png
+
 # Keep directory structure
 !data/raw/.gitkeep
 !data/processed/.gitkeep

@@ -191,6 +191,8 @@ LOCATION_NAME_MAPPINGS = {
 
 def normalize_name(name: str) -> str:
     """Normalize a name for comparison."""
+    if not name:
+        return ""
     return name.strip().lower().replace("_", " ").replace("  ", " ")
 
 
