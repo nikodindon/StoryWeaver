@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 import json
+import re
 
 from loguru import logger
 from tqdm import tqdm
@@ -274,11 +275,43 @@ class SymbolismPass:
     # ── Helpers ────────────────────────────────────────────────────────────
 
     def _safe_parse(self, raw: str, context: str) -> Dict:
+        """Robustly parse JSON from LLM output with multiple fallback strategies."""
+        # Strategy 1: Try clean parse of whole text
         try:
             clean = raw.strip()
             if "```" in clean:
-                clean = clean.split("```")[1].replace("json", "").strip()
+                parts = clean.split("```")
+                for i in range(1, len(parts), 2):
+                    block = parts[i].replace("json", "").strip()
+                    try:
+                        return json.loads(block)
+                    except json.JSONDecodeError:
+                        continue
             return json.loads(clean)
         except json.JSONDecodeError:
-            logger.warning(f"Symbolism parse failed for {context}")
-            return {}
+            pass
+
+        # Strategy 2: Extract JSON blocks by brace matching
+        depth = 0
+        start = None
+        for i, ch in enumerate(raw):
+            if ch == '{' and depth == 0:
+                start = i
+            depth += 1 if ch == '{' else (-1 if ch == '}' else 0)
+            if depth == 0 and start is not None:
+                block = raw[start:i+1]
+                try:
+                    return json.loads(block.strip())
+                except json.JSONDecodeError:
+                    # Strategy 3: Fix common issues
+                    try:
+                        fixed = re.sub(r',\s*([}\]])', r'\1', block)  # trailing commas
+                        fixed = re.sub(r'(\w+)(\s*:)', r'"\1"\2', fixed)  # unquoted keys
+                        fixed = fixed.replace("'", '"')  # single quotes
+                        return json.loads(fixed)
+                    except Exception:
+                        pass
+                start = None
+
+        logger.warning(f"Symbolism parse failed for {context}")
+        return {}

@@ -12,10 +12,15 @@ This script addresses known issues with the LLM extraction pipeline:
 7. Enrich character descriptions
 
 Usage:
-    python scripts/clean_extraction.py harry_potter_1
+    python scripts/clean_extraction.py world_name
 
 Output:
-    data/processed/harry_potter_1/extraction_cleaned.json
+    data/processed/world_name/extraction_cleaned.json
+
+Name Mappings:
+    Place a <world_name>_names.json in configs/name_mappings/ to override
+    the default fuzzy matching with explicit canonical name mappings.
+    See configs/name_mappings/README.md for format.
 """
 import sys
 import json
@@ -48,143 +53,41 @@ TRIVIAL_OBJECT_KEYWORDS = [
     "something", "thing", "person", "people", "crowd",
 ]
 
-# Known character canonical name mappings
-# Maps variant names → canonical name
-CHARACTER_NAME_MAPPINGS = {
-    # Harry Potter variants
-    "harry": "Harry Potter",
-    "harry potter": "Harry Potter",
-    "the boy": "Harry Potter",
-    "the boy who lived": "Harry Potter",
 
-    # Ron Weasley variants
-    "ron": "Ron Weasley",
-    "ron weasley": "Ron Weasley",
-    "weasley": "Ron Weasley",
+def load_name_mappings(world_name: str) -> tuple[dict, dict]:
+    """
+    Load character and location name mappings from config file.
 
-    # Hermione Granger variants
-    "hermione": "Hermione Granger",
-    "hermione granger": "Hermione Granger",
-    "miss granger": "Hermione Granger",
+    Config file format (JSON):
+    {
+      "characters": {
+        "harry": "Harry Potter",
+        "ron": "Ron Weasley"
+      },
+      "locations": {
+        "hogwarts": "Hogwarts",
+        "privet drive": "Privet Drive"
+      }
+    }
 
-    # Dumbledore variants
-    "dumbledore": "Albus Dumbledore",
-    "albus dumbledore": "Albus Dumbledore",
-    "professor dumbledore": "Albus Dumbledore",
+    Returns: (character_mappings, location_mappings)
+    If no config file exists, returns empty dicts (fuzzy matching only).
+    """
+    config_path = Path(__file__).parent.parent / "configs" / "name_mappings" / f"{world_name}_names.json"
 
-    # Hagrid variants
-    "hagrid": "Rubeus Hagrid",
-    "rubeus hagrid": "Rubeus Hagrid",
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                data = json.load(f)
+            char_map = data.get("characters", {})
+            loc_map = data.get("locations", {})
+            print(f"  Loaded name mappings from {config_path.name}")
+            return char_map, loc_map
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"  Warning: Could not parse {config_path}: {e}")
+            print(f"  Falling back to fuzzy matching only")
 
-    # Snape variants
-    "snape": "Severus Snape",
-    "snug": "Severus Snape",
-    "severus snape": "Severus Snape",
-    "professor snape": "Severus Snape",
-
-    # Voldemort variants
-    "voldemort": "Lord Voldemort",
-    "lord voldemort": "Lord Voldemort",
-    "you-know-who": "Lord Voldemort",
-    "you know who": "Lord Voldemort",
-    "the dark lord": "Lord Voldemort",
-    "tom riddle": "Lord Voldemort",
-
-    # McGonagall variants
-    "mcgonagall": "Minerva McGonagall",
-    "minerva mcgonagall": "Minerva McGonagall",
-    "professor mcgonagall": "Minerva McGonagall",
-
-    # Dursley variants
-    "uncle vernon": "Vernon Dursley",
-    "vernon dursley": "Vernon Dursley",
-    "mr. dursley": "Vernon Dursley",
-    "mr dursley": "Vernon Dursley",
-    "aunt petunia": "Petunia Dursley",
-    "petunia dursley": "Petunia Dursley",
-    "mrs. dursley": "Petunia Dursley",
-    "mrs dursley": "Petunia Dursley",
-
-    # Draco Malfoy variants
-    "draco": "Draco Malfoy",
-    "draco malfoy": "Draco Malfoy",
-    "malfoy": "Draco Malfoy",
-
-    # Neville Longbottom variants
-    "neville": "Neville Longbottom",
-    "neville longbottom": "Neville Longbottom",
-    "mr. longbottom": "Neville Longbottom",
-
-    # Percy Weasley variants
-    "percy": "Percy Weasley",
-    "percy weasley": "Percy Weasley",
-
-    # Other characters
-    "dudley": "Dudley Dursley",
-    "dudley dursley": "Dudley Dursley",
-    "piers": "Piers Polkiss",
-    "piers polkiss": "Piers Polkiss",
-    "griphook": "Griphook",
-    "quirrell": "Professor Quirrell",
-    "professor quirrell": "Professor Quirrell",
-    "flitwick": "Professor Flitwick",
-    "professor flitwick": "Professor Flitwick",
-    "sprout": "Professor Sprout",
-    "professor sprout": "Professor Sprout",
-    "oliver wood": "Oliver Wood",
-    "wood": "Oliver Wood",
-    "nearly headless nick": "Nearly Headless Nick",
-    "the bloody baron": "The Bloody Baron",
-    "fat friar": "The Fat Friar",
-    "gryffindor": "Godric Gryffindor",
-    "slytherin": "Salazar Slytherin",
-    "ravenclaw": "Rowena Ravenclaw",
-    "hufflepuff": "Helga Hufflepuff",
-}
-
-# Location canonical mappings
-LOCATION_NAME_MAPPINGS = {
-    "hogwarts": "Hogwarts",
-    "hogwarts castle": "Hogwarts",
-    "hogwarts school": "Hogwarts",
-    "hogwarts school of witchcraft and wizardry": "Hogwarts",
-    "privet drive": "Privet Drive",
-    "number four privet drive": "Privet Drive",
-    "number four's drive": "Privet Drive",
-    "the dursley's house": "Privet Drive",
-    "dursley's house": "Privet Drive",
-    "4 privet drive": "Privet Drive",
-    "diagon alley": "Diagon Alley",
-    "the leaky cauldron": "The Leaky Cauldron",
-    "leaky cauldron": "The Leaky Cauldron",
-    "gringotts": "Gringotts",
-    "gringotts bank": "Gringotts",
-    "gringotts vault": "Gringotts Vault 713",
-    "vault 713": "Gringotts Vault 713",
-    "king's cross": "King's Cross Station",
-    "kings cross": "King's Cross Station",
-    "platform nine-and-three-quarters": "Platform 9¾",
-    "platform 9 3/4": "Platform 9¾",
-    "platform nine and three quarters": "Platform 9¾",
-    "hogwarts express": "Hogwarts Express",
-    "great hall": "The Great Hall",
-    "the great hall": "The Great Hall",
-    "hogwarts forever": "The Moving Stairs",
-    "the moving stairs": "The Moving Stairs",
-    "forbidden forest": "The Forbidden Forest",
-    "the forbidden forest": "The Forbidden Forest",
-    "hogsmeade": "Hogsmeade",
-    "hogsmeade village": "Hogsmeade",
-    "quidditch pitch": "The Quidditch Pitch",
-    "quidditch field": "The Quidditch Pitch",
-    "gryffindor common room": "Gryffindor Common Room",
-    "gryffindor tower": "Gryffindor Tower",
-    "slytherin common room": "Slytherin Common Room",
-    "dumbledore's office": "Dumbledore's Office",
-    "headmaster's office": "Dumbledore's Office",
-    "the burrow": "The Burrow",
-    "the burrow ": "The Burrow",
-}
+    return {}, {}
 
 
 # ── Core Cleaning Functions ───────────────────────────────────────────────
@@ -219,23 +122,17 @@ def fuzzy_match(name: str, candidates: list[str], threshold: float = NAME_SIMILA
     return None
 
 
-def resolve_character_name(name: str, known_names: list[str]) -> str:
+def resolve_character_name(name: str, known_names: list[str], char_mappings: dict = None) -> str:
     """Resolve a character name to its canonical form."""
-    # First check explicit mappings
+    if char_mappings is None:
+        char_mappings = {}
     norm = normalize_name(name)
-    if norm in {normalize_name(k): k for k in CHARACTER_NAME_MAPPINGS}.values():
-        # Already canonical
-        for mapping_name, canonical in CHARACTER_NAME_MAPPINGS.items():
+
+    # First check explicit mappings
+    if norm in {normalize_name(k) for k in char_mappings}:
+        for mapping_name, canonical in char_mappings.items():
             if normalize_name(mapping_name) == norm:
                 return canonical
-
-    if name in CHARACTER_NAME_MAPPINGS:
-        return CHARACTER_NAME_MAPPINGS[name]
-
-    # Check if any mapping key matches (case-insensitive)
-    for mapping_key, canonical in CHARACTER_NAME_MAPPINGS.items():
-        if normalize_name(mapping_key) == norm:
-            return canonical
 
     # Check if name is already in known names
     for known in known_names:
@@ -251,12 +148,14 @@ def resolve_character_name(name: str, known_names: list[str]) -> str:
     return name
 
 
-def resolve_location_name(name: str, known_names: list[str]) -> str:
+def resolve_location_name(name: str, known_names: list[str], loc_mappings: dict = None) -> str:
     """Resolve a location name to its canonical form."""
+    if loc_mappings is None:
+        loc_mappings = {}
     norm = normalize_name(name)
 
     # Check explicit mappings
-    for mapping_key, canonical in LOCATION_NAME_MAPPINGS.items():
+    for mapping_key, canonical in loc_mappings.items():
         if normalize_name(mapping_key) == norm:
             return canonical
 
@@ -291,18 +190,20 @@ def is_trivial_object(name: str, description: str = "") -> bool:
     return False
 
 
-def merge_characters(characters: list[dict]) -> list[dict]:
+def merge_characters(characters: list[dict], char_mappings: dict = None) -> list[dict]:
     """Deduplicate and merge character entries."""
+    if char_mappings is None:
+        char_mappings = {}
     # First pass: collect all names and resolve to canonical
     all_names = set()
     for char in characters:
-        canonical = resolve_character_name(char["name"], list(all_names))
+        canonical = resolve_character_name(char["name"], list(all_names), char_mappings)
         all_names.add(canonical)
 
     # Second pass: merge by canonical name
     merged = {}
     for char in characters:
-        canonical = resolve_character_name(char["name"], list(all_names))
+        canonical = resolve_character_name(char["name"], list(all_names), char_mappings)
 
         if canonical not in merged:
             merged[canonical] = char.copy()
@@ -331,16 +232,18 @@ def merge_characters(characters: list[dict]) -> list[dict]:
     return list(merged.values())
 
 
-def merge_locations(locations: list[dict]) -> list[dict]:
+def merge_locations(locations: list[dict], loc_mappings: dict = None) -> list[dict]:
     """Deduplicate and merge location entries."""
+    if loc_mappings is None:
+        loc_mappings = {}
     all_names = set()
     for loc in locations:
-        canonical = resolve_location_name(loc["name"], list(all_names))
+        canonical = resolve_location_name(loc["name"], list(all_names), loc_mappings)
         all_names.add(canonical)
 
     merged = {}
     for loc in locations:
-        canonical = resolve_location_name(loc["name"], list(all_names))
+        canonical = resolve_location_name(loc["name"], list(all_names), loc_mappings)
 
         if canonical not in merged:
             merged[canonical] = loc.copy()
@@ -424,14 +327,16 @@ def clean_objects(objects: list[dict]) -> list[dict]:
     return cleaned
 
 
-def clean_social_graph(social_graph: list[dict], character_names: list[str]) -> list[dict]:
+def clean_social_graph(social_graph: list[dict], character_names: list[str], char_mappings: dict = None) -> list[dict]:
     """Clean and resolve character names in the social graph."""
+    if char_mappings is None:
+        char_mappings = {}
     cleaned = []
     canonical_names = list(set(character_names))
 
     for edge in social_graph:
-        from_name = resolve_character_name(edge.get("from", ""), canonical_names)
-        to_name = resolve_character_name(edge.get("to", ""), canonical_names)
+        from_name = resolve_character_name(edge.get("from", ""), canonical_names, char_mappings)
+        to_name = resolve_character_name(edge.get("to", ""), canonical_names, char_mappings)
 
         # Skip self-loops or unresolvable names
         if from_name == to_name:
@@ -445,14 +350,16 @@ def clean_social_graph(social_graph: list[dict], character_names: list[str]) -> 
     return cleaned
 
 
-def fix_event_participants(events: list[dict], character_names: list[str]) -> list[dict]:
+def fix_event_participants(events: list[dict], character_names: list[str], char_mappings: dict = None) -> list[dict]:
     """Fix participant names in events to match canonical character names."""
+    if char_mappings is None:
+        char_mappings = {}
     canonical_names = list(set(character_names))
 
     for event in events:
         fixed_participants = []
         for participant in event.get("participants", []):
-            resolved = resolve_character_name(participant, canonical_names)
+            resolved = resolve_character_name(participant, canonical_names, char_mappings)
             if resolved in character_names:
                 fixed_participants.append(resolved)
             else:
@@ -464,8 +371,11 @@ def fix_event_participants(events: list[dict], character_names: list[str]) -> li
     return events
 
 
-def enrich_extraction(extraction: dict) -> dict:
+def enrich_extraction(extraction: dict, world_name: str) -> dict:
     """Main enrichment function that orchestrates all cleaning steps."""
+    # Load name mappings from config (if available)
+    char_mappings, loc_mappings = load_name_mappings(world_name)
+
     print("\n🧹 Cleaning and enriching extraction data...\n")
 
     structure = extraction.get("structure", {})
@@ -475,7 +385,7 @@ def enrich_extraction(extraction: dict) -> dict:
     print("1. Merging characters...")
     characters = structure.get("characters", [])
     print(f"  Before: {len(characters)} entries")
-    characters = merge_characters(characters)
+    characters = merge_characters(characters, char_mappings)
     print(f"  After: {len(characters)} unique characters")
     structure["characters"] = characters
 
@@ -483,7 +393,7 @@ def enrich_extraction(extraction: dict) -> dict:
     print("\n2. Merging locations...")
     locations = structure.get("locations", [])
     print(f"  Before: {len(locations)} entries")
-    locations = merge_locations(locations)
+    locations = merge_locations(locations, loc_mappings)
     print(f"  After: {len(locations)} unique locations")
     structure["locations"] = locations
 
@@ -504,13 +414,13 @@ def enrich_extraction(extraction: dict) -> dict:
     # ── Step 5: Fix event participants ──
     print("\n5. Fixing event participants...")
     char_names = {c["name"] for c in characters}
-    events = fix_event_participants(events, char_names)
+    events = fix_event_participants(events, char_names, char_mappings)
     structure["events"] = events
 
     # ── Step 6: Clean social graph ──
     print("\n6. Cleaning social graph...")
     social_graph = relations.get("social_graph", [])
-    social_graph = clean_social_graph(social_graph, char_names)
+    social_graph = clean_social_graph(social_graph, char_names, char_mappings)
     relations["social_graph"] = social_graph
 
     # ── Summary ──
@@ -576,7 +486,7 @@ def main():
     print(f"  Events:     {len(structure.get('events', []))}")
 
     # Clean and enrich
-    cleaned = enrich_extraction(extraction)
+    cleaned = enrich_extraction(extraction, world_name)
 
     # Save cleaned extraction
     output_file = processed_dir / "extraction_cleaned.json"
@@ -585,8 +495,8 @@ def main():
         json.dump(cleaned, f, indent=2, ensure_ascii=False)
 
     print(f"\n✅ Done! Cleaned extraction saved to: {output_file}")
-    print(f"\nNext step: Update compile_hp_world.py to use extraction_cleaned.json")
-    print(f"Or run: python scripts/compile_hp_world.py --cleaned")
+    print(f"\nNext step: Use a generic compile script or create configs/name_mappings/{world_name}_names.json")
+    print(f"Or run: python scripts/compile_world.py --name {world_name} --cleaned")
 
 
 if __name__ == "__main__":

@@ -54,26 +54,49 @@ from storyweaver.simulation.character_schedule import ScheduleManager
 from storyweaver.simulation.narrative_gates import GateManager
 
 # ── Static fallback scenes (used when LLM is unavailable) ─────────────────
-STATIC_SCENES = {
-    "emperor": {
-        "intro": (
-            "Many years ago, there was an emperor who was so excessively fond of new "
-            "clothes that he spent all his money on dress. He cared nothing for his "
-            "soldiers, the theater, or hunting — except for opportunities to display "
-            "his new outfits.\n\n"
-            "Today, two strangers have arrived in the capital, claiming to be weavers "
-            "who can create the most magnificent fabric ever seen — fabric that remains "
-            "invisible to anyone unfit for their office or extraordinarily simple in character."
-        ),
-        "look": (
-            "The grand hall echoes with the sound of empty looms clacking. The two "
-            "weavers gesture proudly at the bare frames, asking for more silk and gold "
-            "thread. The emperor's ministers nod approvingly at the magnificent cloth "
-            "that only they can see.\n\n"
-            "You stand among the courtiers, uncertain whether you can see the fabric or not."
-        ),
+def get_static_scene(world_name: str, scene: str = "intro") -> str:
+    """Generate a generic fallback scene based on the loaded world name."""
+    world_key = world_name.lower().replace(" ", "_")
+
+    # Generic fallback — works for any world
+    generic_intro = (
+        f"You find yourself in the world of {world_name}. "
+        "The air hums with unseen possibilities. "
+        "Around you, the environment shifts and changes — "
+        "a testament to the living narrative that surrounds you.\n\n"
+        "What would you like to do?"
+    )
+    generic_look = (
+        "You take in your surroundings. "
+        "The details of this place are still revealing themselves to you. "
+        "Every corner holds a new discovery, every shadow a new story waiting to unfold.\n\n"
+        "What would you like to do?"
+    )
+
+    # Specific known worlds (for backward compatibility)
+    known_worlds = {
+        "emperor": {
+            "intro": (
+                "Many years ago, there was an emperor who was so excessively fond of new "
+                "clothes that he spent all his money on dress. He cared nothing for his "
+                "soldiers, the theater, or hunting — except for opportunities to display "
+                "his new outfits.\n\n"
+                "Today, two strangers have arrived in the capital, claiming to be weavers "
+                "who can create the most magnificent fabric ever seen — fabric that remains "
+                "invisible to anyone unfit for their office or extraordinarily simple in character."
+            ),
+            "look": (
+                "The grand hall echoes with the sound of empty looms clacking. The two "
+                "weavers gesture proudly at the bare frames, asking for more silk and gold "
+                "thread. The emperor's ministers nod approvingly at the magnificent cloth "
+                "that only they can see.\n\n"
+                "You stand among the courtiers, uncertain whether you can see the fabric or not."
+            ),
+        }
     }
-}
+
+    world_data = known_worlds.get(world_key, {})
+    return world_data.get(scene, generic_intro if scene == "intro" else generic_look)
 
 
 # ── Game State ─────────────────────────────────────────────────────────────

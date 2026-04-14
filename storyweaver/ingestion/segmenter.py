@@ -12,9 +12,16 @@ from typing import List, Dict
 
 
 CHAPTER_PATTERNS = [
-    r'^CHAPTER\s+[IVXLCDM\d]+',
-    r'^Chapter\s+\d+',
+    # Roman numerals: CHAPTER V, Chapter XII, chapter iii
+    r'^(?:CHAPTER)\s+[IVXLCDM]{2,}',
+    # Arabic numerals: CHAPTER 1, Chapter 12
+    r'^(?:CHAPTER)\s+\d+',
+    # Word numbers: CHAPTER ONE, Chapter Twenty-One, chapter one
+    r'^(?:CHAPTER)\s+(?:ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE|THIRTEEN|FOURTEEN|FIFTEEN|SIXTEEN|SEVENTEEN|EIGHTEEN|NINETEEN|TWENTY|TWENTY-ONE|TWENTY-TWO|TWENTY-THREE|TWENTY-FOUR|TWENTY-FIVE|TWENTY-SIX|TWENTY-SEVEN|TWENTY-EIGHT|TWENTY-NINE|THIRTY|THIRTY-ONE|THIRTY-TWO|THIRTY-THREE|THIRTY-FOUR|THIRTY-FIVE)',
+    # Numbered sections: 1. The Beginning
     r'^\d+\.\s+[A-Z]',
+    # Part divisions: PART ONE, Part Two
+    r'^(?:PART)\s+(?:[IVXLCDM]+|\d+|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN)',
 ]
 
 SCENE_BREAK = r'\n\n'
@@ -63,7 +70,8 @@ class Segmenter:
 
     def _split_chapters(self, text: str) -> List[str]:
         pattern = '|'.join(CHAPTER_PATTERNS)
-        parts = re.split(f'(?m)({pattern})', text)
+        # Use IGNORECASE to handle "Chapter one", "CHAPTER ONE", "chapter ONE"
+        parts = re.split(f'(?m)({pattern})', text, flags=re.IGNORECASE)
         if len(parts) <= 1:
             # No chapter markers found — treat as one big chapter
             return [text]
@@ -71,7 +79,7 @@ class Segmenter:
         chapters = []
         i = 0
         while i < len(parts):
-            if i + 1 < len(parts) and re.match(pattern, parts[i].strip()):
+            if i + 1 < len(parts) and re.match(pattern, parts[i].strip(), re.IGNORECASE):
                 chapters.append(parts[i] + parts[i+1])
                 i += 2
             else:

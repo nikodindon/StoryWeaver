@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 import json
+import re
 
 from loguru import logger
 from tqdm import tqdm
@@ -264,12 +265,66 @@ class RelationsPass:
 
     # ── Helpers ────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _extract_json_blocks(text: str) -> List[str]:
+        """Extract all JSON-like blocks from text, handling common LLM output patterns."""
+        blocks = []
+        # Method 1: Extract from markdown code blocks
+        code_blocks = re.findall(r'```(?:json)?\s*\n?(.*?)```', text, re.DOTALL)
+        blocks.extend(code_blocks)
+
+        # Method 2: If no code blocks, try to find top-level { ... } objects
+        if not blocks:
+            depth = 0
+            start = None
+            for i, ch in enumerate(text):
+                if ch == '{' and depth == 0:
+                    start = i
+                depth += 1 if ch == '{' else (-1 if ch == '}' else 0)
+                if depth == 0 and start is not None:
+                    blocks.append(text[start:i+1])
+                    start = None
+
+        return blocks
+
     def _safe_parse(self, raw: str, context: str) -> Dict:
+        """Robustly parse JSON from LLM output with multiple fallback strategies."""
+        # Strategy 1: Try clean parse of whole text
         try:
             clean = raw.strip()
             if "```" in clean:
-                clean = clean.split("```")[1].replace("json", "").strip()
+                # Extract first code block
+                parts = clean.split("```")
+                for i in range(1, len(parts), 2):
+                    block = parts[i].replace("json", "").strip()
+                    try:
+                        return json.loads(block)
+                    except json.JSONDecodeError:
+                        continue
             return json.loads(clean)
         except json.JSONDecodeError:
-            logger.warning(f"Relations parse failed for {context}")
-            return {}
+            pass
+
+        # Strategy 2: Try to extract JSON blocks manually
+        blocks = self._extract_json_blocks(raw)
+        for block in blocks:
+            try:
+                return json.loads(block.strip())
+            except json.JSONDecodeError:
+                continue
+
+        # Strategy 3: Fix common JSON issues and retry
+        for block in blocks:
+            try:
+                # Fix trailing commas
+                fixed = re.sub(r',\s*([}\]])', r'\1', block)
+                # Fix unquoted keys
+                fixed = re.sub(r'(\w+)(\s*:)', r'"\1"\2', fixed)
+                # Fix single quotes
+                fixed = fixed.replace("'", '"')
+                return json.loads(fixed)
+            except (json.JSONDecodeError, Exception):
+                continue
+
+        logger.warning(f"Relations parse failed for {context} (tried {len(blocks)} blocks)")
+        return {}
